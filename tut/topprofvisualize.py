@@ -3,14 +3,15 @@ import numpy as np
 import glob
 import open3d as o3d
 
-# Load images from the specified folder
-def load_images_from_folder(folder_path):
+def load_images_from_folder(folder_path, target_size):
     image_files = glob.glob(folder_path + '/*.jpg')  # Adjust the file extension as needed
     images = [cv2.imread(img_file, cv2.IMREAD_GRAYSCALE) for img_file in image_files]
-    return images
+    resized_images = [cv2.resize(img, target_size) for img in images]
+    return resized_images
 
-# Load top profile images
-top_images = load_images_from_folder(r'D:\iitg\tut\top view')
+# Load and resize images
+path_top = r'D:/iitg/tut/top view resized'
+top_images = load_images_from_folder(path_top, (513, 753))  # Adjust the target size to a common shape
 
 if not top_images:
     raise ValueError("No images found in the specified directory.")
