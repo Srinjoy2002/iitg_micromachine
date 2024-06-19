@@ -4,13 +4,13 @@ import glob
 import open3d as o3d
 
 # Load images
-image_files = glob.glob(r'D:\iitg\tut\side profile of tool\*.jpg')  # Adjust the path and file extension as needed
+image_files = glob.glob(r'D:\iitg\tut\side profile of tool\*.jpg')  
 images = [cv2.imread(img_file, cv2.IMREAD_GRAYSCALE) for img_file in image_files]
 
 if not images:
     raise ValueError("No images found in the specified directory.")
 
-# Function to compute the variance of the Laplacian (a measure of focus)
+
 def variance_of_laplacian(image):
     return cv2.Laplacian(image, cv2.CV_64F)
 
@@ -53,11 +53,11 @@ def depth_map_to_point_cloud(depth_map, scale=1.0):
 
     return np.array(points)
 
-# Generate point cloud and refine it
+# Generating the point cloud
 point_cloud = depth_map_to_point_cloud(depth_map)
 np.savetxt('point_cloud2.xyz', point_cloud, fmt='%.2f')
 
-# Refine point cloud
+# Refine point cloud for open3d visualization
 def refine_point_cloud(points, voxel_size=0.05):
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
