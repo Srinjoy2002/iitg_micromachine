@@ -3,21 +3,19 @@ import cv2
 import numpy as np
 import glob
 import open3d as o3d
+import os
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel
-
-# Define pixel_to_mm_scale based on the effective pixel size
-pixel_to_mm_scale = 0.0029  # Adjusted based on effective pixel size
-
+#it load images form the parent folder with the jpg formats each and every image in definite order
 def load_images_from_folder(folder_path):
     image_files = glob.glob(folder_path + '/*.jpg')
     images = [cv2.imread(img_file) for img_file in image_files]
     return images
-
-def convert_to_binary(image, threshold=100):  # Lowered threshold value
+#this function converts th images to grayscale format with pixel values ranging from 0-255
+def convert_to_binary(image, threshold=120):  # Lowered threshold value
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     _, binary = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
     return binary
-
+# this function finds the largest continous region image from the grayscale matrix and doing laplacian in that [Laplacian(I(x,y))]
 def largest_continuous_region(binary_image):
     num_labels, labels_im = cv2.connectedComponents(binary_image)
     if num_labels > 1:  # Ensure there are connected components
@@ -28,7 +26,7 @@ def largest_continuous_region(binary_image):
     else:
         print("No connected components found.")
         return binary_image  # Return the original binary image if no components found
-
+#this function uses all those laplacian values and uses the images above the threshold to calclate the focus data and stack
 def focus_stack(images):
     stack_shape = images[0].shape[:2]
     focus_measure = np.zeros(stack_shape)
@@ -67,9 +65,9 @@ def depth_map_to_point_cloud(depth_map, xy_scale=1.0, z_scale=1.0):
 def calculate_dimensions(points):
     x_min, y_min, z_min = np.min(points, axis=0)
     x_max, y_max, z_max = np.max(points, axis=0)
-    length = (x_max - x_min) * pixel_to_mm_scale  # Convert to mm
-    breadth = (y_max - y_min) * pixel_to_mm_scale  # Convert to mm
-    height = (z_max - z_min) * z_scale  # Already in mm
+    length = x_max - x_min
+    breadth = y_max - y_min
+    height = z_max - z_min
     return length, breadth, height
 
 class PointCloudApp(QWidget):
@@ -88,7 +86,7 @@ class PointCloudApp(QWidget):
         self.run_point_cloud_processing()
 
     def run_point_cloud_processing(self):
-        profile_folders = ['side_1', 'side_2', 'side_3', 'side_4']
+        profile_folders = ['side_1', 'side_2']
         all_point_clouds = []
 
         for folder in profile_folders:
@@ -104,6 +102,7 @@ class PointCloudApp(QWidget):
             stacked_image, focus_indices = focus_stack(images_binary)
             depth_map = create_depth_map(focus_indices, layer_distance=100)  # 100 microns
 
+            pixel_to_mm_scale = 0.01  # Each pixel represents 0.01mm
             z_scale = 0.001  # Adjust z-axis scaling factor
 
             point_cloud = depth_map_to_point_cloud(depth_map, xy_scale=pixel_to_mm_scale, z_scale=z_scale)
@@ -127,3 +126,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     ex = PointCloudApp()
     sys.exit(app.exec_())
+
+
+
+#original tested code
