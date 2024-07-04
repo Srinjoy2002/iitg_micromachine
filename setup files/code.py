@@ -1,3 +1,5 @@
+#original tested code
+
 import sys
 import cv2
 import numpy as np
@@ -5,36 +7,35 @@ import glob
 import open3d as o3d
 import os
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel
-#it load images form the parent folder with the jpg formats each and every image in definite order
+
 def load_images_from_folder(folder_path):
     image_files = glob.glob(folder_path + '/*.jpg')
     images = [cv2.imread(img_file) for img_file in image_files]
     return images
-#this function converts th images to grayscale format with pixel values ranging from 0-255
-def convert_to_binary(image, threshold=120):  # Lowered threshold value
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _, binary = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
-    return binary
-# this function finds the largest continous region image from the grayscale matrix and doing laplacian in that [Laplacian(I(x,y))]
-def largest_continuous_region(binary_image):
-    num_labels, labels_im = cv2.connectedComponents(binary_image)
-    if num_labels > 1:  # Ensure there are connected components
-        max_label = 1 + np.argmax(np.bincount(labels_im.flat)[1:])
-        largest_region = np.zeros_like(binary_image)
-        largest_region[labels_im == max_label] = 255
-        return largest_region
-    else:
-        print("No connected components found.")
-        return binary_image  # Return the original binary image if no components found
-#this function uses all those laplacian values and uses the images above the threshold to calclate the focus data and stack
+
+def remove_background(image, lower_color, upper_color):
+    # Convert image to HSV color space
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, lower_color, upper_color)
+    
+    # Apply morphological operations to remove small noise
+    kernel = np.ones((5, 5), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    
+    result = cv2.bitwise_and(image, image, mask=mask)
+    return result
+
+def variance_of_laplacian(image):
+    return cv2.Laplacian(image, cv2.CV_64F).var()
+
 def focus_stack(images):
     stack_shape = images[0].shape[:2]
     focus_measure = np.zeros(stack_shape)
     focus_indices = np.zeros(stack_shape, dtype=int)
 
     for i, image in enumerate(images):
-        largest_region = largest_continuous_region(image)
-        laplacian = cv2.Laplacian(largest_region, cv2.CV_64F)
+        laplacian = cv2.Laplacian(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY), cv2.CV_64F)
         mask = laplacian > focus_measure
         focus_measure[mask] = laplacian[mask]
         focus_indices[mask] = i
@@ -57,8 +58,7 @@ def depth_map_to_point_cloud(depth_map, xy_scale=1.0, z_scale=1.0):
     for y in range(h):
         for x in range(w):
             z = depth_map[y, x] * z_scale
-            if z > 0:  # Only include points where there is depth information
-                points.append([x * xy_scale, y * xy_scale, z])
+            points.append([x * xy_scale, y * xy_scale, z])
 
     return np.array(points)
 
@@ -73,60 +73,81 @@ def calculate_dimensions(points):
 class PointCloudApp(QWidget):
     def __init__(self):
         super().__init__()
+
         self.initUI()
 
     def initUI(self):
         self.setWindowTitle('Point Cloud and Dimensions')
         self.setGeometry(100, 100, 800, 600)
+
         layout = QVBoxLayout()
+
         self.dimension_label = QLabel(self)
         layout.addWidget(self.dimension_label)
+
         self.setLayout(layout)
         self.show()
+
         self.run_point_cloud_processing()
 
     def run_point_cloud_processing(self):
-        profile_folders = ['side_1', 'side_2']
+        profile_folders = ['side profile cap','top profile cap']
+        
+        # Define HSV color range for the object
+        lower_color = np.array([0, 0, 200])  # Adjust these values based on your object color
+        upper_color = np.array([180, 255, 255])
+
         all_point_clouds = []
 
         for folder in profile_folders:
             images = load_images_from_folder(folder)
             if not images:
                 raise ValueError(f"Please provide at least two profile images in {folder}.")
+                
+            images_cleaned = [remove_background(img, lower_color, upper_color) for img in images]
+            
+            # Save cleaned images to a new folder
+            cleaned_folder = 'cleaned_images'
+            if not os.path.exists(cleaned_folder):
+                os.makedirs(cleaned_folder)
+            for i, img in enumerate(images_cleaned):
+                cv2.imwrite(os.path.join(cleaned_folder, f'{folder.split()[0]}_{i}.jpg'), img)
 
-            images_binary = [convert_to_binary(img) for img in images]
-
-            for i, binary_image in enumerate(images_binary):
-                cv2.imwrite(f'{folder}_binary_{i}.png', binary_image)
-
-            stacked_image, focus_indices = focus_stack(images_binary)
+            stacked_image, focus_indices = focus_stack(images_cleaned)
             depth_map = create_depth_map(focus_indices, layer_distance=100)  # 100 microns
 
-            pixel_to_mm_scale = 0.01  # Each pixel represents 0.01mm
-            z_scale = 0.001  # Adjust z-axis scaling factor
+            # Since the object is 2mm by 2mm, and assuming a 2mm x 2mm image size, we need a scaling factor.
+            # Let's assume the images are 200x200 pixels, so each pixel represents 0.01mm.
+            pixel_to_mm_scale = 0.01  # This would need adjusting if the images have a different resolution
+
+            # Adjust the z-scale to make sure the point cloud is not too elongated
+            z_scale = 0.001  # Hardcoded z-axis scaling factor to reduce elongation
 
             point_cloud = depth_map_to_point_cloud(depth_map, xy_scale=pixel_to_mm_scale, z_scale=z_scale)
             all_point_clouds.append(point_cloud)
 
+        # Merge all point clouds
         merged_point_cloud = np.concatenate(all_point_clouds, axis=0)
 
+        # Calculate dimensions
         length, breadth, height = calculate_dimensions(merged_point_cloud)
 
         self.dimension_label.setText(f'Length: {length:.2f} mm, Breadth: {breadth:.2f} mm, Height: {height:.2f} mm')
 
+        # Visualize the point cloud
         self.visualize_point_cloud(merged_point_cloud)
 
     def visualize_point_cloud(self, points):
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(points)
+        
+        # Create a coordinate frame for scale reference
         coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=[0, 0, 0])
+        
+        # Visualize the point cloud with the coordinate frame
         o3d.visualization.draw_geometries([pcd, coordinate_frame])
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     ex = PointCloudApp()
     sys.exit(app.exec_())
-
-
-
-#original tested code
