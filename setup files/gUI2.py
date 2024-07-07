@@ -60,7 +60,7 @@ def create_depth_map(focus_indices, layer_distance):
     depth_map = focus_indices * layer_distance
     return depth_map
 
-
+#The depth_map_to_point_cloud function takes the depth map, XY scale, and Z scale as input and returns a 3D point cloud
 def depth_map_to_point_cloud(depth_map, xy_scale=1.0, z_scale=1.0):
     h, w = depth_map.shape
     points = []
@@ -72,7 +72,7 @@ def depth_map_to_point_cloud(depth_map, xy_scale=1.0, z_scale=1.0):
 
     return np.array(points)
 
-
+#The calculate_dimensions function takes a point cloud as input and returns the length, breadth, and height of the point cloud
 def calculate_dimensions(points):
     x_min, y_min, z_min = np.min(points, axis=0)
     x_max, y_max, z_max = np.max(points, axis=0)
