@@ -17,6 +17,8 @@ def load_images_from_folder(folder_path):
     images = [cv2.imread(img_file) for img_file in image_files]
     return images
 
+# The remove_background function takes an image and two color ranges (lower and upper) as input. It converts the image to HSV color space, applies a mask to remove the background, and returns the resulting image.
+
 
 def remove_background(image, lower_color, upper_color):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -33,6 +35,7 @@ def remove_background(image, lower_color, upper_color):
 def variance_of_laplacian(image):
     return cv2.Laplacian(image, cv2.CV_64F).var()
 
+# The focus_stack function takes a list of images as input and returns a focus-stacked image and a focus index map. It uses the Laplacian of the image to measure focus and selects the sharpest regions from each image
 
 def focus_stack(images):
     stack_shape = images[0].shape[:2]
@@ -52,7 +55,7 @@ def focus_stack(images):
 
     return stacked_image, focus_indices
 
-
+#The create_depth_map function takes the focus index map and a layer distance as input and returns a depth map
 def create_depth_map(focus_indices, layer_distance):
     depth_map = focus_indices * layer_distance
     return depth_map
