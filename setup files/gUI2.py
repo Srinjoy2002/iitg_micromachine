@@ -1,3 +1,4 @@
+#import necessary packages
 import sys
 import cv2
 import numpy as np
@@ -8,7 +9,9 @@ from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushBut
 from PyQt5.QtGui import QFont, QPixmap, QIcon, QImage, QPainter, QPen
 from PyQt5.QtCore import Qt, QPoint
 
+#Loading images from a folder
 
+#The load_images_from_folder function takes a folder path as input and returns a list of images loaded from the folder using OpenCV.
 def load_images_from_folder(folder_path):
     image_files = glob.glob(folder_path + '/*.jpg')
     images = [cv2.imread(img_file) for img_file in image_files]
