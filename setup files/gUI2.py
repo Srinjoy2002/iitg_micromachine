@@ -310,3 +310,17 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     ex = PointCloudApp()
     sys.exit(app.exec_())
+
+
+
+#Point cloud processing and visualization
+
+# When the user clicks the "Start" button, the application:
+
+# Loads images from the selected folder.
+# Removes the background from each image.
+# Focus-stacks the images.
+# Creates a depth map from the focus-stacked image.
+# Converts the depth map to a point cloud.
+# Calculates the dimensions of the point cloud.
+# Visualizes the point cloud using Open3D.
