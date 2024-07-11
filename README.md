@@ -17,4 +17,5 @@ This project aims to create accurate 3D point clouds from 2D images of tool prof
 
 6.glob
 
-7.mayavi (optional for additional 3D visualization)
+7.Custom scaling and measuring using mouse pointer
+
