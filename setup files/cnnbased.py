@@ -106,34 +106,35 @@ class PointCloudApp(QWidget):
         self.run_point_cloud_processing()
 
     def run_point_cloud_processing(self):
-        folder = 'D:\iitg\iitg_micromachine\setup files\cleaned_images'  # Update this to the folder containing your single profile images
-
-        images = load_images_from_folder(folder)
-        if not images:
-            raise ValueError(f"Please provide images in {folder}.")
-            
-        # Use Mask R-CNN for background removal
-        images_cleaned = [mask_image_with_rcnn(img) for img in images]
-
-        if len(images_cleaned) == 0:
-            raise ValueError(f"No valid images found in {folder}.")
+        profile_folders = ['side profile cap', 'top profile cap']
         
-        stacked_image, focus_indices = focus_stack(images_cleaned)
-        depth_map = create_depth_map(focus_indices, layer_distance=100)  # Adjust layer distance as needed
+        all_point_clouds = []
 
-        pixel_to_mm_scale = 0.01  # Adjust the scaling factor according to your pixel size
-        z_scale = 0.001
+        for folder in profile_folders:
+            images = load_images_from_folder(folder)
+            if not images:
+                raise ValueError(f"Please provide at least two profile images in {folder}.")
+                
+            # Use Mask R-CNN for background removal
+            images_cleaned = [mask_image_with_rcnn(img) for img in images]
 
-        point_cloud = depth_map_to_point_cloud(depth_map, xy_scale=pixel_to_mm_scale, z_scale=z_scale)
-        length, breadth, height = calculate_dimensions(point_cloud)
+            stacked_image, focus_indices = focus_stack(images_cleaned)
+            depth_map = create_depth_map(focus_indices, layer_distance=100)  # Adjust layer distance as needed
+
+            pixel_to_mm_scale = 0.01  # Adjust the scaling factor according to your pixel size
+            z_scale = 0.001
+
+            point_cloud = depth_map_to_point_cloud(depth_map, xy_scale=pixel_to_mm_scale, z_scale=z_scale)
+            all_point_clouds.append(point_cloud)
+
+        merged_point_cloud = np.concatenate(all_point_clouds, axis=0)
+        length, breadth, height = calculate_dimensions(merged_point_cloud)
 
         self.dimension_label.setText(f'Length: {length:.2f} mm, Breadth: {breadth:.2f} mm, Height: {height:.2f} mm')
 
-        self.visualize_point_cloud(point_cloud)
+        self.visualize_point_cloud(merged_point_cloud)
 
     def visualize_point_cloud(self, points):
-        import open3d as o3d
-
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(points)
 
