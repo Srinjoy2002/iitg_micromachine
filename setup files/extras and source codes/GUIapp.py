@@ -106,7 +106,7 @@ class PointCloudApp(QWidget):
         self.run_point_cloud_processing()
 
     def run_point_cloud_processing(self):
-        folder = 'D:\iitg\iitg_micromachine\setup files\cleaned_images'  # Update this to the folder containing your single profile images
+        folder = 'data\niddles'  # Update this to the folder containing your single profile images
 
         images = load_images_from_folder(folder)
         if not images:
