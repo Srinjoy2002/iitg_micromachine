@@ -1,0 +1,6 @@
+opencv-python
+numpy
+torch
+torchvision
+pyqt5
+open3d
