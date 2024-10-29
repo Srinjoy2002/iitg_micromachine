@@ -9,6 +9,9 @@ from tkinter import Tk, Label, Button, filedialog, messagebox, Frame
 from tkinter import ttk
 import open3d as o3d
 import os
+import gc
+from scipy.spatial import Delaunay
+from stl import mesh
 
 # Load Mask R-CNN model
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -45,7 +48,7 @@ def get_object_mask(image):
 
 def traditional_masking(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 50, 150)
+    edges = cv2.Canny(gray, 50, 150)  # Canny edge detection
     kernel = np.ones((3, 3), np.uint8)
     dilated_edges = cv2.dilate(edges, kernel, iterations=1)
     mask = cv2.inRange(dilated_edges, 1, 255)
@@ -90,8 +93,9 @@ def depth_map_to_point_cloud(depth_map, image, xy_scale=1.0, z_scale=1.0):
     for y in range(h):
         for x in range(w):
             z = depth_map[y, x] * z_scale
-            if z != 0:
+            if z != 0:  # Only add points with valid z
                 points.append([x * xy_scale, y * xy_scale, z])
+                # Get RGB color from the original image
                 color = image[y, x] / 255.0
                 colors.append(color)
 
@@ -106,6 +110,25 @@ def calculate_dimensions(points):
     breadth = y_max - y_min
     height = z_max - z_min
     return length, breadth, height
+
+def create_stl(points, filename='output.stl'):
+    points = np.array(points)
+    if len(points) < 3:
+        raise ValueError("Not enough points to create a mesh.")
+
+    # Delaunay triangulation for creating a mesh
+    tri = Delaunay(points[:, :2])
+    vertices = points
+
+    # Create the mesh
+    mesh_data = mesh.Mesh(np.zeros(tri.simplices.shape[0], dtype=mesh.Mesh.dtype))
+    for i, simplex in enumerate(tri.simplices):
+        for j in range(3):
+            mesh_data.vectors[i][j] = vertices[simplex[j], :]
+
+    # Write the mesh to file
+    mesh_data.save(filename)
+    print(f"STL file saved as: {filename}")
 
 class PointCloudApp:
     def __init__(self, master):
@@ -132,6 +155,8 @@ class PointCloudApp:
         self.progress_bar.pack(pady=10)
 
         self.images = []
+        self.point_cloud = None
+        self.colors = None
 
     def upload_images(self):
         folder_path = filedialog.askdirectory()
@@ -147,29 +172,41 @@ class PointCloudApp:
         self.progress_bar['maximum'] = len(self.images)
 
         images_cleaned = []
+        masks = []
         for i, img in enumerate(self.images):
             masked_img, mask = mask_image_with_rcnn(img)
             if masked_img is not None:
                 images_cleaned.append(masked_img)
+                masks.append(mask)
 
-            progress = int((i + 1) / len(self.images) * 100)
-            print(f"Progress: {progress}%")
+            # Update the progress bar and print percentage to the terminal
             self.progress_bar['value'] = i + 1
+            percentage = (i + 1) / len(self.images) * 100
+            print(f"Processing: {percentage:.2f}% complete")
             self.master.update_idletasks()
 
         if len(images_cleaned) == 0:
             self.dimension_label.config(text="Error: No valid images after processing.")
             return
 
+        # Focus stacking
         stacked_image, focus_indices = focus_stack(images_cleaned)
         depth_map = create_depth_map(focus_indices, layer_distance=100)
 
         pixel_to_mm_scale = 0.01
-        point_cloud, colors = depth_map_to_point_cloud(depth_map, stacked_image, xy_scale=pixel_to_mm_scale, z_scale=0.001)
-        length, breadth, height = calculate_dimensions(point_cloud)
+        self.point_cloud, self.colors = depth_map_to_point_cloud(depth_map, stacked_image, xy_scale=pixel_to_mm_scale, z_scale=0.001)
+        length, breadth, height = calculate_dimensions(self.point_cloud)
 
         self.dimension_label.config(text=f'Length: {length:.2f} mm, Breadth: {breadth:.2f} mm, Height: {height:.2f} mm')
-        self.visualize_point_cloud(point_cloud, colors)
+
+        # Automatically export STL after processing
+        output_file = 'output.stl'  # You can modify this to include a path if needed
+        try:
+            create_stl(self.point_cloud, filename=output_file)
+        except ValueError as e:
+            messagebox.showerror("Error", str(e))
+
+        self.visualize_point_cloud(self.point_cloud, self.colors)
 
     def visualize_point_cloud(self, points, colors):
         if len(points) == 0:
@@ -179,20 +216,9 @@ class PointCloudApp:
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(points)
         pcd.colors = o3d.utility.Vector3dVector(colors)
+        o3d.visualization.draw_geometries([pcd])
 
-        pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.01, max_nn=30))
-        pcd.orient_normals_consistent_tangent_plane(100)
-
-        # Save the point cloud for CAD import
-        o3d.io.write_point_cloud("point_cloud.ply", pcd)
-
-        # Convert the point cloud to a mesh using Poisson reconstruction
-        mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, depth=8)
-        o3d.io.write_triangle_mesh("point_cloud.stl", mesh)
-
-        o3d.visualization.draw_geometries([pcd], window_name="Point Cloud", width=800, height=600)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     root = Tk()
     app = PointCloudApp(root)
     root.mainloop()
