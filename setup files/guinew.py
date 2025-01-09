@@ -120,7 +120,7 @@ class TechnicalPointCloudApp:
         self.visualization_canvas.pack(pady=5)
 
         # Bottom Section: Parameter Display
-        self.bottom_frame = Frame(master, bg="#262626", height=150, relief="groove", bd=1)
+        self.bottom_frame = Frame(master, bg="#262626", height=200, relief="groove", bd=1)
         self.bottom_frame.pack(side="bottom", fill="x", pady=10)
 
         self.parameters_label = Label(
@@ -145,12 +145,12 @@ class TechnicalPointCloudApp:
         # Display parameters in a grid
         for row, (param, value) in enumerate(self.parameters):
             param_label = Label(
-                self.parameter_grid, text=param, font=("Consolas", 12), fg="#FFFFFF", bg="#262626", anchor="w", width=20
+                self.parameter_grid, text=param, font=("Consolas", 12), fg="#FFFFFF", bg="#262626", anchor="w", width=15
             )
             param_label.grid(row=row, column=0, padx=10, pady=5)
 
             value_label = Label(
-                self.parameter_grid, text=value, font=("Consolas", 12, "bold"), fg="#FFD700", bg="#262626", anchor="w", width=20
+                self.parameter_grid, text=value, font=("Consolas", 12, "bold"), fg="#FFD700", bg="#262626", anchor="w", width=25
             )
             value_label.grid(row=row, column=1, padx=10, pady=5)
 
