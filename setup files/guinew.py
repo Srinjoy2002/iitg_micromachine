@@ -10,6 +10,12 @@ class TechnicalPointCloudApp:
         self.master.configure(bg="#1A1A1A")  # Set dark background color
         self.master.state("zoomed")  # Open in full-screen mode
 
+        # Variables for drawing
+        self.drawing_mode = None
+        self.start_x = None
+        self.start_y = None
+        self.current_item = None
+
         # Top Panel for Buttons and Logo
         self.top_panel = Frame(master, bg="#262626", height=80, relief="groove", bd=1)
         self.top_panel.pack(side="top", fill="x", pady=5)
@@ -77,8 +83,27 @@ class TechnicalPointCloudApp:
         )
         self.captured_image_label.pack(pady=5)
 
+        # Menu Bar for Drawing
+        self.menu_bar = Frame(self.center_frame, bg="#1A1A1A")
+        self.menu_bar.pack(fill="x", padx=5, pady=5)
+
+        Button(
+            self.menu_bar, text="Draw Line", bg="#FF4500", fg="white", font=("Consolas", 10), command=self.set_draw_line
+        ).pack(side="left", padx=5, pady=5)
+        Button(
+            self.menu_bar, text="Draw Circle (Diameter)", bg="#00BFFF", fg="white", font=("Consolas", 10), command=self.set_draw_circle_diameter
+        ).pack(side="left", padx=5, pady=5)
+        Button(
+            self.menu_bar, text="Draw Circle (Radius)", bg="#FFD700", fg="white", font=("Consolas", 10), command=self.set_draw_circle_radius
+        ).pack(side="left", padx=5, pady=5)
+
         self.captured_image_canvas = Canvas(self.center_frame, width=400, height=400, bg="#1A1A1A", relief="sunken")
         self.captured_image_canvas.pack(pady=5)
+
+        # Bind mouse events
+        self.captured_image_canvas.bind("<ButtonPress-1>", self.start_drawing)
+        self.captured_image_canvas.bind("<B1-Motion>", self.update_drawing)
+        self.captured_image_canvas.bind("<ButtonRelease-1>", self.finish_drawing)
 
         # Right Section: 3D Visualization
         self.right_frame = Frame(master, bg="#262626", width=450, height=600, borderwidth=2, relief="groove")
@@ -101,44 +126,33 @@ class TechnicalPointCloudApp:
         )
         self.parameters_label.pack(pady=5)
 
-        # Scrollable Parameter Frame
-        self.scrollable_frame = Frame(self.bottom_frame, bg="#262626")
-        self.scrollable_frame.pack(fill="both", expand=True)
+    def set_draw_line(self):
+        self.drawing_mode = "line"
 
-        # Scrollbar
-        scrollbar = Scrollbar(self.scrollable_frame, orient="vertical")
-        scrollbar.pack(side="right", fill="y")
+    def set_draw_circle_diameter(self):
+        self.drawing_mode = "circle_diameter"
 
-        # Treeview to Display Parameters
-        self.parameter_tree = Treeview(
-            self.scrollable_frame,
-            columns=("Parameter", "Value"),
-            show="headings",
-            yscrollcommand=scrollbar.set,
-            style="Treeview",
-        )
-        self.parameter_tree.heading("Parameter", text="Parameter")
-        self.parameter_tree.heading("Value", text="Value")
-        self.parameter_tree.column("Parameter", width=150, anchor="center")
-        self.parameter_tree.column("Value", width=150, anchor="center")
-        self.parameter_tree.pack(fill="both", expand=True, padx=10)
+    def set_draw_circle_radius(self):
+        self.drawing_mode = "circle_radius"
 
-        scrollbar.config(command=self.parameter_tree.yview)
+    def start_drawing(self, event):
+        self.start_x, self.start_y = event.x, event.y
+        if self.drawing_mode == "line":
+            self.current_item = self.captured_image_canvas.create_line(
+                self.start_x, self.start_y, event.x, event.y, fill="#FF4500", width=2
+            )
+        elif self.drawing_mode in {"circle_diameter", "circle_radius"}:
+            self.current_item = self.captured_image_canvas.create_oval(
+                self.start_x, self.start_y, event.x, event.y, outline="#00BFFF", width=2
+            )
 
-        # Dummy Parameters
-        self.parameters = [
-            ("Micron", "10 µm"),
-            ("Upper Bound", "5.0 mm"),
-            ("Lower Bound", "15.0 mm"),
-            ("Focus Metric", "0.85"),
-            ("Additional Param 1", "Value 1"),
-            ("Additional Param 2", "Value 2"),
-        ]
+    def update_drawing(self, event):
+        if self.current_item and self.drawing_mode:
+            self.captured_image_canvas.coords(self.current_item, self.start_x, self.start_y, event.x, event.y)
 
-        for param, value in self.parameters:
-            self.parameter_tree.insert("", "end", values=(param, value))
+    def finish_drawing(self, event):
+        self.start_x = self.start_y = self.current_item = None
 
-    # Button actions (placeholders for actual functionality)
     def calibrate_action(self):
         print("Calibrating...")
 
