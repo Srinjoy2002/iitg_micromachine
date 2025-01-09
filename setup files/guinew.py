@@ -1,6 +1,5 @@
 import sys
-from tkinter import Tk, Label, Button, Frame, Canvas, PhotoImage, Scrollbar
-from tkinter.ttk import Treeview
+from tkinter import Tk, Label, Button, Frame, Canvas, PhotoImage
 
 
 class TechnicalPointCloudApp:
@@ -105,6 +104,9 @@ class TechnicalPointCloudApp:
         self.captured_image_canvas.bind("<B1-Motion>", self.update_drawing)
         self.captured_image_canvas.bind("<ButtonRelease-1>", self.finish_drawing)
 
+        # Bind Space Key for Clearing Drawings
+        self.master.bind("<space>", self.clear_drawings)
+
         # Right Section: 3D Visualization
         self.right_frame = Frame(master, bg="#262626", width=450, height=600, borderwidth=2, relief="groove")
         self.right_frame.pack(side="left", fill="both", padx=10, pady=10)
@@ -125,6 +127,32 @@ class TechnicalPointCloudApp:
             self.bottom_frame, text="Parameters", font=("Consolas", 14, "bold"), fg="#00BFFF", bg="#262626"
         )
         self.parameters_label.pack(pady=5)
+
+        # Parameter Grid
+        self.parameter_grid = Frame(self.bottom_frame, bg="#262626")
+        self.parameter_grid.pack()
+
+        # Dummy Parameters
+        self.parameters = [
+            ("Micron", "10 µm"),
+            ("Upper Bound", "5.0 mm"),
+            ("Lower Bound", "15.0 mm"),
+            ("Focus Metric", "0.85"),
+            ("Additional Param 1", "Value 1"),
+            ("Additional Param 2", "Value 2"),
+        ]
+
+        # Display parameters in a grid
+        for row, (param, value) in enumerate(self.parameters):
+            param_label = Label(
+                self.parameter_grid, text=param, font=("Consolas", 12), fg="#FFFFFF", bg="#262626", anchor="w", width=20
+            )
+            param_label.grid(row=row, column=0, padx=10, pady=5)
+
+            value_label = Label(
+                self.parameter_grid, text=value, font=("Consolas", 12, "bold"), fg="#FFD700", bg="#262626", anchor="w", width=20
+            )
+            value_label.grid(row=row, column=1, padx=10, pady=5)
 
     def set_draw_line(self):
         self.drawing_mode = "line"
@@ -152,6 +180,9 @@ class TechnicalPointCloudApp:
 
     def finish_drawing(self, event):
         self.start_x = self.start_y = self.current_item = None
+
+    def clear_drawings(self, event=None):
+        self.captured_image_canvas.delete("all")
 
     def calibrate_action(self):
         print("Calibrating...")
