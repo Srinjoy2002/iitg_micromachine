@@ -285,11 +285,11 @@ class TechnicalPointCloudApp:
     def toggle_mode(self):
         self.manual_mode.set(not self.manual_mode.get())
         if self.manual_mode.get():
-            self.toggle_mode_button.config(text="Manual Mode: ON", bg="#E63E00")
+            self.toggle_mode_button.config(text="Manual Mode", bg="#E63E00")
             self.fix_upper_button.config(state="normal")
             self.fix_lower_button.config(state="normal")
         else:
-            self.toggle_mode_button.config(text="Manual Mode: OFF", bg="#FFD700")
+            self.toggle_mode_button.config(text="Automatic", bg="#FFD700")
             self.fix_upper_button.config(state="disabled")
             self.fix_lower_button.config(state="disabled")
 
