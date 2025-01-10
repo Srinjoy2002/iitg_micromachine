@@ -6,30 +6,30 @@ class TechnicalPointCloudApp:
     def __init__(self, master):
         self.master = master
         self.master.title("3D Point Cloud Reconstruction Tool")
-        self.master.configure(bg="#1A1A1A")  # Set dark background color
-        self.master.state("zoomed")  # Open in full-screen mode
+        self.master.configure(bg="#1A1A1A")
+        self.master.state("zoomed")  # Open in maximised window
 
-        # Variables for drawing
+        
         self.drawing_mode = None
         self.start_x = None
         self.start_y = None
         self.current_item = None
 
-        # Top Panel for Buttons and Logo
+        # Pnael of Buttons and Logo
         self.top_panel = Frame(master, bg="#262626", height=80, relief="groove", bd=1)
         self.top_panel.pack(side="top", fill="x", pady=5)
 
-        # Add Logo in the Top Panel
-        self.logo_image = PhotoImage(file="D:/iitg/iitg_micromachine/setup files/download.png")  # Replace with your logo file path
+        
+        self.logo_image = PhotoImage(file="D:/iitg/iitg_micromachine/setup files/download.png")  # logo file path
         self.logo_label = Label(self.top_panel, image=self.logo_image, bg="#262626")
         self.logo_label.pack(side="right", padx=20, pady=5)
 
-        # Buttons in Top Panel
+        # Buttons 
         self.calibrate_button = Button(
             self.top_panel,
             text="Calibrate",
             font=("Consolas", 12, "bold"),
-            bg="#FF4500",  # Neon red
+            bg="#FF4500",  
             fg="#1A1A1A",
             relief="flat",
             command=self.calibrate_action,
@@ -41,7 +41,7 @@ class TechnicalPointCloudApp:
             self.top_panel,
             text="Image Capture",
             font=("Consolas", 12, "bold"),
-            bg="#00BFFF",  # Neon blue
+            bg="#00BFFF",  
             fg="#1A1A1A",
             relief="flat",
             command=self.capture_action,
@@ -53,7 +53,7 @@ class TechnicalPointCloudApp:
             self.top_panel,
             text="Focus Stack",
             font=("Consolas", 12, "bold"),
-            bg="#FFD700",  # Neon yellow
+            bg="#FFD700",  
             fg="#1A1A1A",
             relief="flat",
             command=self.focus_stack_action,
@@ -61,7 +61,7 @@ class TechnicalPointCloudApp:
         )
         self.focus_stack_button.pack(side="left", padx=20, pady=10)
 
-        # Left Section: Live Video Feed
+        # Live Video Feed from Dino-lite Camera
         self.left_frame = Frame(master, bg="#262626", width=450, height=600, borderwidth=2, relief="groove")
         self.left_frame.pack(side="left", fill="both", padx=10, pady=10)
 
@@ -73,7 +73,7 @@ class TechnicalPointCloudApp:
         self.live_feed_canvas = Canvas(self.left_frame, width=400, height=400, bg="#1A1A1A", relief="sunken")
         self.live_feed_canvas.pack(pady=5)
 
-        # Center Section: Last Captured Image
+        # Last Captured Image
         self.center_frame = Frame(master, bg="#262626", width=450, height=600, borderwidth=2, relief="groove")
         self.center_frame.pack(side="left", fill="both", padx=10, pady=10)
 
@@ -82,7 +82,7 @@ class TechnicalPointCloudApp:
         )
         self.captured_image_label.pack(pady=5)
 
-        # Menu Bar for Drawing
+        # Menu Bar for Drawing and annotating on the Last Captured Image
         self.menu_bar = Frame(self.center_frame, bg="#1A1A1A")
         self.menu_bar.pack(fill="x", padx=5, pady=5)
 
@@ -107,7 +107,7 @@ class TechnicalPointCloudApp:
         # Bind Space Key for Clearing Drawings
         self.master.bind("<space>", self.clear_drawings)
 
-        # Right Section: 3D Visualization
+        # 3D Visualization, after the Focus Stacking is done, visualize here.
         self.right_frame = Frame(master, bg="#262626", width=450, height=600, borderwidth=2, relief="groove")
         self.right_frame.pack(side="left", fill="both", padx=10, pady=10)
 
@@ -119,7 +119,7 @@ class TechnicalPointCloudApp:
         self.visualization_canvas = Canvas(self.right_frame, width=400, height=400, bg="#1A1A1A", relief="sunken")
         self.visualization_canvas.pack(pady=5)
 
-        # Bottom Section: Parameter Display
+        # Machnining Parameter Display
         self.bottom_frame = Frame(master, bg="#262626", height=200, relief="groove", bd=1)
         self.bottom_frame.pack(side="bottom", fill="x", pady=10)
 
@@ -128,11 +128,11 @@ class TechnicalPointCloudApp:
         )
         self.parameters_label.pack(pady=5)
 
-        # Parameter Grid
+        # Grid
         self.parameter_grid = Frame(self.bottom_frame, bg="#262626")
         self.parameter_grid.pack()
 
-        # Dummy Parameters
+        # Some pparameters(dummy as of now)
         self.parameters = [
             ("Micron", "10 µm"),
             ("Upper Bound", "5.0 mm"),
