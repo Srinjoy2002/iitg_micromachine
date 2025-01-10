@@ -6,7 +6,7 @@ class TechnicalPointCloudApp:
         self.master = master
         self.master.title("3D Point Cloud Reconstruction Tool")
 
-        self.master.geometry("1600x900")  # Set higher resolution
+        self.master.geometry("1600x900")  
         self.master.configure(bg="#1A1A1A")
 
         # Variables for stage and drawing
@@ -17,23 +17,23 @@ class TechnicalPointCloudApp:
         self.stage_position = 5.0  # Initial stage position
         self.upper_bound = 8.0
         self.lower_bound = 2.0
-        self.manual_mode = BooleanVar(value=False)  # Manual/Automatic toggle
+        self.manual_mode = BooleanVar(value=False)  #toggle switch to switch b/w manula and auto mode
 
         # Top Panel for Buttons and Logo
         self.top_panel = Frame(master, bg="#262626", height=80, relief="groove", bd=1)
         self.top_panel.pack(side="top", fill="x", pady=5)
 
         # Add Logo
-        self.logo_image = PhotoImage(file="D:/iitg/iitg_micromachine/setup files/download.png")  # Replace with your logo file path
+        self.logo_image = PhotoImage(file="D:/iitg/iitg_micromachine/setup files/download.png") 
         self.logo_label = Label(self.top_panel, image=self.logo_image, bg="#262626")
         self.logo_label.pack(side="right", padx=20, pady=5)
 
-        # Buttons
+        # Buttons for calibrate, img capture, focus stack
         self.calibrate_button = Button(
             self.top_panel,
             text="Calibrate",
             font=("Consolas", 12, "bold"),
-            bg="#FF4500",  # Neon red
+            bg="#FF4500",  
             fg="#1A1A1A",
             relief="flat",
             command=self.calibrate_action,
@@ -45,7 +45,7 @@ class TechnicalPointCloudApp:
             self.top_panel,
             text="Image Capture",
             font=("Consolas", 12, "bold"),
-            bg="#00BFFF",  # Neon blue
+            bg="#00BFFF",  
             fg="#1A1A1A",
             relief="flat",
             command=self.capture_action,
@@ -57,7 +57,7 @@ class TechnicalPointCloudApp:
             self.top_panel,
             text="Focus Stack",
             font=("Consolas", 12, "bold"),
-            bg="#FFD700",  # Neon yellow
+            bg="#FFD700",  
             fg="#1A1A1A",
             relief="flat",
             command=self.focus_stack_action,
@@ -65,12 +65,12 @@ class TechnicalPointCloudApp:
         )
         self.focus_stack_button.pack(side="left", padx=20, pady=10)
 
-        # Button to open 3D Visualization
+        # Button to open 3D Visualization in a diff window(full screen pop up)
         self.open_3d_button = Button(
             self.top_panel,
             text="Open 3D Viz",
             font=("Consolas", 12, "bold"),
-            bg="#FF4500",  # Neon red
+            bg="#FF4500",  
             fg="#1A1A1A",
             relief="flat",
             command=self.open_3d_visualization,
@@ -78,7 +78,7 @@ class TechnicalPointCloudApp:
         )
         self.open_3d_button.pack(side="left", padx=20, pady=10)
 
-        # Left Section: Live Video Feed with Scale
+        #  Video Feed with Scale from the dino lite camera
         self.left_frame = Frame(master, bg="#262626", width=800, height=700, borderwidth=2, relief="groove")
         self.left_frame.pack(side="left", fill="both", padx=10, pady=10)
 
@@ -90,11 +90,11 @@ class TechnicalPointCloudApp:
         self.live_feed_canvas = Canvas(self.left_frame, width=600, height=600, bg="#1A1A1A", relief="sunken")
         self.live_feed_canvas.pack(side="left", padx=5, pady=5)
 
-        # Scale and Jog Buttons
+        # Scale and Jog Buttons, for moving the linear stage up and down
         self.scale_frame = Frame(self.left_frame, bg="#1A1A1A")
         self.scale_frame.pack(side="right", fill="y", padx=5, pady=5)
 
-        # Scrollable Scale
+        # Scrollable Scale to visualize the upper and lower bounds, in form of a slider dot
         self.scale_canvas = Canvas(self.scale_frame, width=50, height=600, bg="#262626", relief="flat")
         self.scale_canvas.pack(side="left", fill="y", pady=5)
 
@@ -103,7 +103,7 @@ class TechnicalPointCloudApp:
         self.scale_canvas.configure(yscrollcommand=self.scrollbar.set)
         self.update_scale()
 
-        # Jog Buttons
+        # Jog Buttons, to manully move the stage up and down
         self.jog_up_button = Button(
             self.scale_frame,
             text="▲",
@@ -128,7 +128,7 @@ class TechnicalPointCloudApp:
         )
         self.jog_down_button.pack(pady=5)
 
-        # Manual/Automatic Toggle Button
+        # Manual/Automatic mode Toggle Button for calibration, the upper and lower bounds can be fixed only if the mode is slected to be manually, otherwise the algo rithm does the task
         self.toggle_mode_button = Button(
             self.scale_frame,
             text="Manual Mode: OFF",
@@ -140,7 +140,7 @@ class TechnicalPointCloudApp:
         )
         self.toggle_mode_button.pack(pady=5)
 
-        # Fix Bound Buttons
+        # Fix Bound Buttons, to manully set the upper and lower bounds 
         self.fix_upper_button = Button(
             self.scale_frame,
             text="Set Upper Bound",
@@ -165,7 +165,7 @@ class TechnicalPointCloudApp:
         )
         self.fix_lower_button.pack(pady=5)
 
-        # Center Section: Last Captured Image with Drawing Features
+        # Last Captured Image with Drawing Features
         self.center_frame = Frame(master, bg="#262626", width=450, height=600, borderwidth=2, relief="groove")
         self.center_frame.pack(side="left", fill="both", padx=10, pady=10)
 
@@ -174,7 +174,7 @@ class TechnicalPointCloudApp:
         )
         self.captured_image_label.pack(pady=5)
 
-        # Menu Bar for Drawing
+        # Menu Bar for Drawing-line,radius circle, twopoint circle
         self.menu_bar = Frame(self.center_frame, bg="#1A1A1A")
         self.menu_bar.pack(fill="x", padx=5, pady=5)
 
@@ -197,7 +197,7 @@ class TechnicalPointCloudApp:
 
         self.master.bind("<space>", self.clear_drawings)
 
-        # Parameters Section
+        # Parameters Section, to view the current parameters
         self.bottom_frame = Frame(master, bg="#262626", height=150, relief="groove", bd=1)
         self.bottom_frame.pack(side="bottom", fill="x", pady=10)
 
