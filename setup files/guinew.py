@@ -131,7 +131,7 @@ class TechnicalPointCloudApp:
         # Manual/Automatic mode Toggle Button for calibration, the upper and lower bounds can be fixed only if the mode is slected to be manually, otherwise the algo rithm does the task
         self.toggle_mode_button = Button(
             self.scale_frame,
-            text="Manual Mode: OFF",
+            text="Manual Mode",
             font=("Consolas", 10),
             bg="#FFD700",
             fg="#1A1A1A",
