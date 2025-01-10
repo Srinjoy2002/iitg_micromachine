@@ -7,29 +7,31 @@ class TechnicalPointCloudApp:
         self.master = master
         self.master.title("3D Point Cloud Reconstruction Tool")
         self.master.configure(bg="#1A1A1A")
-        self.master.state("zoomed")  # Open in maximised window
+        self.master.state("zoomed")  # Open in maximized window
 
-        
         self.drawing_mode = None
         self.start_x = None
         self.start_y = None
         self.current_item = None
 
-        # Pnael of Buttons and Logo
+        # Stage position for scale indicator
+        self.stage_position = 0.0  # Initial position in mm
+
+        # Top Panel for Buttons and Logo
         self.top_panel = Frame(master, bg="#262626", height=80, relief="groove", bd=1)
         self.top_panel.pack(side="top", fill="x", pady=5)
 
-        
-        self.logo_image = PhotoImage(file="D:/iitg/iitg_micromachine/setup files/download.png")  # logo file path
+        # Add Logo
+        self.logo_image = PhotoImage(file="D:/iitg/iitg_micromachine/setup files/download.png")  # Replace with your logo file path
         self.logo_label = Label(self.top_panel, image=self.logo_image, bg="#262626")
         self.logo_label.pack(side="right", padx=20, pady=5)
 
-        # Buttons 
+        # Buttons
         self.calibrate_button = Button(
             self.top_panel,
             text="Calibrate",
             font=("Consolas", 12, "bold"),
-            bg="#FF4500",  
+            bg="#FF4500",  # Neon red
             fg="#1A1A1A",
             relief="flat",
             command=self.calibrate_action,
@@ -41,7 +43,7 @@ class TechnicalPointCloudApp:
             self.top_panel,
             text="Image Capture",
             font=("Consolas", 12, "bold"),
-            bg="#00BFFF",  
+            bg="#00BFFF",  # Neon blue
             fg="#1A1A1A",
             relief="flat",
             command=self.capture_action,
@@ -53,7 +55,7 @@ class TechnicalPointCloudApp:
             self.top_panel,
             text="Focus Stack",
             font=("Consolas", 12, "bold"),
-            bg="#FFD700",  
+            bg="#FFD700",  # Neon yellow
             fg="#1A1A1A",
             relief="flat",
             command=self.focus_stack_action,
@@ -61,7 +63,7 @@ class TechnicalPointCloudApp:
         )
         self.focus_stack_button.pack(side="left", padx=20, pady=10)
 
-        # Live Video Feed from Dino-lite Camera
+        # Left Section: Live Video Feed with Scale
         self.left_frame = Frame(master, bg="#262626", width=450, height=600, borderwidth=2, relief="groove")
         self.left_frame.pack(side="left", fill="both", padx=10, pady=10)
 
@@ -71,9 +73,55 @@ class TechnicalPointCloudApp:
         self.live_feed_label.pack(pady=5)
 
         self.live_feed_canvas = Canvas(self.left_frame, width=400, height=400, bg="#1A1A1A", relief="sunken")
-        self.live_feed_canvas.pack(pady=5)
+        self.live_feed_canvas.pack(side="left", pady=5)
 
-        # Last Captured Image
+        # Scale and Jog Buttons
+        self.scale_frame = Frame(self.left_frame, bg="#1A1A1A")
+        self.scale_frame.pack(side="right", fill="y", padx=5)
+
+        # Upper Bound Indicator
+        self.upper_bound_label = Label(
+            self.scale_frame, text="Upper Bound", font=("Consolas", 10), fg="#FFD700", bg="#1A1A1A"
+        )
+        self.upper_bound_label.pack(pady=5)
+
+        # Scale Display
+        self.scale_canvas = Canvas(self.scale_frame, width=50, height=400, bg="#262626", relief="flat")
+        self.scale_canvas.pack(pady=5)
+        self.update_scale()
+
+        # Lower Bound Indicator
+        self.lower_bound_label = Label(
+            self.scale_frame, text="Lower Bound", font=("Consolas", 10), fg="#FFD700", bg="#1A1A1A"
+        )
+        self.lower_bound_label.pack(pady=5)
+
+        # Jog Buttons
+        self.jog_up_button = Button(
+            self.scale_frame,
+            text="▲",
+            font=("Consolas", 12, "bold"),
+            bg="#00BFFF",
+            fg="#1A1A1A",
+            relief="flat",
+            command=self.jog_up,
+            activebackground="#009ACD",
+        )
+        self.jog_up_button.pack(pady=5)
+
+        self.jog_down_button = Button(
+            self.scale_frame,
+            text="▼",
+            font=("Consolas", 12, "bold"),
+            bg="#FF4500",
+            fg="#1A1A1A",
+            relief="flat",
+            command=self.jog_down,
+            activebackground="#E63E00",
+        )
+        self.jog_down_button.pack(pady=5)
+
+        # Center Section: Last Captured Image
         self.center_frame = Frame(master, bg="#262626", width=450, height=600, borderwidth=2, relief="groove")
         self.center_frame.pack(side="left", fill="both", padx=10, pady=10)
 
@@ -82,7 +130,7 @@ class TechnicalPointCloudApp:
         )
         self.captured_image_label.pack(pady=5)
 
-        # Menu Bar for Drawing and annotating on the Last Captured Image
+        # Menu Bar for Drawing
         self.menu_bar = Frame(self.center_frame, bg="#1A1A1A")
         self.menu_bar.pack(fill="x", padx=5, pady=5)
 
@@ -99,15 +147,13 @@ class TechnicalPointCloudApp:
         self.captured_image_canvas = Canvas(self.center_frame, width=400, height=400, bg="#1A1A1A", relief="sunken")
         self.captured_image_canvas.pack(pady=5)
 
-        # Bind mouse events
         self.captured_image_canvas.bind("<ButtonPress-1>", self.start_drawing)
         self.captured_image_canvas.bind("<B1-Motion>", self.update_drawing)
         self.captured_image_canvas.bind("<ButtonRelease-1>", self.finish_drawing)
 
-        # Bind Space Key for Clearing Drawings
         self.master.bind("<space>", self.clear_drawings)
 
-        # 3D Visualization, after the Focus Stacking is done, visualize here.
+        # Right Section: 3D Visualization
         self.right_frame = Frame(master, bg="#262626", width=450, height=600, borderwidth=2, relief="groove")
         self.right_frame.pack(side="left", fill="both", padx=10, pady=10)
 
@@ -119,40 +165,27 @@ class TechnicalPointCloudApp:
         self.visualization_canvas = Canvas(self.right_frame, width=400, height=400, bg="#1A1A1A", relief="sunken")
         self.visualization_canvas.pack(pady=5)
 
-        # Machnining Parameter Display
-        self.bottom_frame = Frame(master, bg="#262626", height=200, relief="groove", bd=1)
-        self.bottom_frame.pack(side="bottom", fill="x", pady=10)
+    def update_scale(self):
+        """Update the scale indicator on the scale canvas."""
+        self.scale_canvas.delete("all")
+        self.scale_canvas.create_line(25, 0, 25, 400, fill="white", width=2)  # Main scale line
+        for i in range(0, 401, 20):
+            self.scale_canvas.create_line(20, i, 30, i, fill="white")  # Tick marks
+        # Current position indicator
+        pos = 400 - (self.stage_position * 40)  # Map stage position to scale
+        self.scale_canvas.create_oval(15, pos - 5, 35, pos + 5, fill="#FFD700", outline="")
 
-        self.parameters_label = Label(
-            self.bottom_frame, text="Parameters", font=("Consolas", 14, "bold"), fg="#00BFFF", bg="#262626"
-        )
-        self.parameters_label.pack(pady=5)
+    def jog_up(self):
+        """Move the stage up."""
+        if self.stage_position < 10.0:  # Upper limit
+            self.stage_position += 0.1
+            self.update_scale()
 
-        # Grid
-        self.parameter_grid = Frame(self.bottom_frame, bg="#262626")
-        self.parameter_grid.pack()
-
-        # Some pparameters(dummy as of now)
-        self.parameters = [
-            ("Micron", "10 µm"),
-            ("Upper Bound", "5.0 mm"),
-            ("Lower Bound", "15.0 mm"),
-            ("Focus Metric", "0.85"),
-            ("Additional Param 1", "Value 1"),
-            ("Additional Param 2", "Value 2"),
-        ]
-
-        # Display parameters in a grid
-        for row, (param, value) in enumerate(self.parameters):
-            param_label = Label(
-                self.parameter_grid, text=param, font=("Consolas", 12), fg="#FFFFFF", bg="#262626", anchor="w", width=15
-            )
-            param_label.grid(row=row, column=0, padx=10, pady=5)
-
-            value_label = Label(
-                self.parameter_grid, text=value, font=("Consolas", 12, "bold"), fg="#FFD700", bg="#262626", anchor="w", width=25
-            )
-            value_label.grid(row=row, column=1, padx=10, pady=5)
+    def jog_down(self):
+        """Move the stage down."""
+        if self.stage_position > 0.0:  # Lower limit
+            self.stage_position -= 0.1
+            self.update_scale()
 
     def set_draw_line(self):
         self.drawing_mode = "line"
