@@ -1,93 +1,105 @@
 from tkinter import Tk, Label, Button, Frame, Canvas, PhotoImage, Toplevel, BooleanVar, Scrollbar
 
-
 class TechnicalPointCloudApp:
     def __init__(self, master):
         self.master = master
         self.master.title("3D Point Cloud Reconstruction Tool")
 
-        self.master.geometry("1600x900")  
+        self.master.geometry("1600x900")
         self.master.configure(bg="#1A1A1A")
 
         # Variables for stage and drawing
-        self.drawing_mode = None  # Drawing mode
+        self.drawing_mode = None
         self.start_x = None
         self.start_y = None
         self.current_item = None
-        self.stage_position = 5.0  # Initial stage position
+        self.stage_position = 5.0
         self.upper_bound = 8.0
         self.lower_bound = 2.0
-        self.manual_mode = BooleanVar(value=False)  #toggle switch to switch b/w manula and auto mode
+        self.manual_mode = BooleanVar(value=False)  # toggle switch to switch b/w manual and auto mode
 
         # Top Panel for Buttons and Logo
-        self.top_panel = Frame(master, bg="#262626", height=80, relief="groove", bd=1)
+        self.top_panel = Frame(master, bg="#262626", height=120, relief="groove", bd=1)
         self.top_panel.pack(side="top", fill="x", pady=5)
 
-        # Add Logo
-        self.logo_image = PhotoImage(file="D:/iitg/iitg_micromachine/setup files/download.png") 
+        # Add Logo (smaller size)
+        self.logo_image = PhotoImage(file="E:\iitg_micromachine\setup files\download.png").subsample(3)  # Resize by a factor of 3
         self.logo_label = Label(self.top_panel, image=self.logo_image, bg="#262626")
-        self.logo_label.pack(side="right", padx=20, pady=5)
+        self.logo_label.pack(side="left", padx=20, pady=5)
 
         # Buttons for calibrate, img capture, focus stack
         self.calibrate_button = Button(
             self.top_panel,
             text="Calibrate",
-            font=("Consolas", 12, "bold"),
+            font=("Consolas", 10, "bold"),
             bg="#FF4500",  
             fg="#1A1A1A",
             relief="flat",
             command=self.calibrate_action,
             activebackground="#E63E00",
         )
-        self.calibrate_button.pack(side="left", padx=20, pady=10)
+        self.calibrate_button.pack(side="left", padx=10, pady=10)
 
         self.capture_button = Button(
             self.top_panel,
             text="Image Capture",
-            font=("Consolas", 12, "bold"),
+            font=("Consolas", 10, "bold"),
             bg="#00BFFF",  
             fg="#1A1A1A",
             relief="flat",
             command=self.capture_action,
             activebackground="#009ACD",
         )
-        self.capture_button.pack(side="left", padx=20, pady=10)
+        self.capture_button.pack(side="left", padx=10, pady=10)
 
         self.focus_stack_button = Button(
             self.top_panel,
             text="Focus Stack",
-            font=("Consolas", 12, "bold"),
+            font=("Consolas", 10, "bold"),
             bg="#FFD700",  
             fg="#1A1A1A",
             relief="flat",
             command=self.focus_stack_action,
             activebackground="#FFC400",
         )
-        self.focus_stack_button.pack(side="left", padx=20, pady=10)
+        self.focus_stack_button.pack(side="left", padx=10, pady=10)
 
         # Button to open 3D Visualization in a diff window(full screen pop up)
         self.open_3d_button = Button(
             self.top_panel,
             text="Open 3D Viz",
-            font=("Consolas", 12, "bold"),
+            font=("Consolas", 10, "bold"),
             bg="#FF4500",  
             fg="#1A1A1A",
             relief="flat",
             command=self.open_3d_visualization,
             activebackground="#E63E00",
         )
-        self.open_3d_button.pack(side="left", padx=20, pady=10)
+        self.open_3d_button.pack(side="left", padx=10, pady=10)
 
-        #  Video Feed with Scale from the dino lite camera
-        self.left_frame = Frame(master, bg="#262626", width=800, height=700, borderwidth=2, relief="groove")
-        self.left_frame.pack(side="left", fill="both", padx=10, pady=10)
+        # Parameters Button - will show parameters in a popup window
+        self.parameters_button = Button(
+            self.top_panel,
+            text="Parameters",
+            font=("Consolas", 12, "bold"),
+            bg="#FFD700",
+            fg="#1A1A1A",
+            relief="flat",
+            command=self.show_parameters,
+            activebackground="#FFC400",
+        )
+        self.parameters_button.pack(side="right", padx=20)
+
+        # Adjusted size for left frame (live feed)
+        self.left_frame = Frame(master, bg="#262626", width=600, height=700, borderwidth=2, relief="groove")
+        self.left_frame.pack(side="left", fill="both", padx=10, pady=10, expand=True)
 
         self.live_feed_label = Label(
             self.left_frame, text="Live Video Feed", font=("Consolas", 14, "bold"), fg="#00BFFF", bg="#262626"
         )
         self.live_feed_label.pack(pady=5)
 
-        self.live_feed_canvas = Canvas(self.left_frame, width=600, height=600, bg="#1A1A1A", relief="sunken")
+        self.live_feed_canvas = Canvas(self.left_frame, width=400, height=400, bg="#1A1A1A", relief="sunken")
         self.live_feed_canvas.pack(side="left", padx=5, pady=5)
 
         # Scale and Jog Buttons, for moving the linear stage up and down
@@ -103,7 +115,7 @@ class TechnicalPointCloudApp:
         self.scale_canvas.configure(yscrollcommand=self.scrollbar.set)
         self.update_scale()
 
-        # Jog Buttons, to manully move the stage up and down
+        # Jog Buttons, to manually move the stage up and down
         self.jog_up_button = Button(
             self.scale_frame,
             text="▲",
@@ -128,7 +140,7 @@ class TechnicalPointCloudApp:
         )
         self.jog_down_button.pack(pady=5)
 
-        # Manual/Automatic mode Toggle Button for calibration, the upper and lower bounds can be fixed only if the mode is slected to be manually, otherwise the algo rithm does the task
+        # Manual/Automatic mode Toggle Button for calibration
         self.toggle_mode_button = Button(
             self.scale_frame,
             text="Manual Mode",
@@ -140,7 +152,7 @@ class TechnicalPointCloudApp:
         )
         self.toggle_mode_button.pack(pady=5)
 
-        # Fix Bound Buttons, to manully set the upper and lower bounds 
+        # Fix Bound Buttons
         self.fix_upper_button = Button(
             self.scale_frame,
             text="Set Upper Bound",
@@ -166,27 +178,13 @@ class TechnicalPointCloudApp:
         self.fix_lower_button.pack(pady=5)
 
         # Last Captured Image with Drawing Features
-        self.center_frame = Frame(master, bg="#262626", width=450, height=600, borderwidth=2, relief="groove")
-        self.center_frame.pack(side="left", fill="both", padx=10, pady=10)
+        self.center_frame = Frame(master, bg="#262626", width=750, height=700, borderwidth=2, relief="groove")
+        self.center_frame.pack(side="left", fill="both", padx=10, pady=10, expand=True)
 
         self.captured_image_label = Label(
             self.center_frame, text="Last Captured Image", font=("Consolas", 14, "bold"), fg="#FFD700", bg="#262626"
         )
         self.captured_image_label.pack(pady=5)
-
-        # Menu Bar for Drawing-line,radius circle, twopoint circle
-        self.menu_bar = Frame(self.center_frame, bg="#1A1A1A")
-        self.menu_bar.pack(fill="x", padx=5, pady=5)
-
-        Button(
-            self.menu_bar, text="Draw Line", bg="#FF4500", fg="white", font=("Consolas", 10), command=self.set_draw_line
-        ).pack(side="left", padx=5, pady=5)
-        Button(
-            self.menu_bar, text="Draw Circle (Diameter)", bg="#00BFFF", fg="white", font=("Consolas", 10), command=self.set_draw_circle_diameter
-        ).pack(side="left", padx=5, pady=5)
-        Button(
-            self.menu_bar, text="Draw Circle (Radius)", bg="#FFD700", fg="white", font=("Consolas", 10), command=self.set_draw_circle_radius
-        ).pack(side="left", padx=5, pady=5)
 
         self.captured_image_canvas = Canvas(self.center_frame, width=400, height=400, bg="#1A1A1A", relief="sunken")
         self.captured_image_canvas.pack(pady=5)
@@ -197,37 +195,37 @@ class TechnicalPointCloudApp:
 
         self.master.bind("<space>", self.clear_drawings)
 
-        # Parameters Section, to view the current parameters
-        self.bottom_frame = Frame(master, bg="#262626", height=150, relief="groove", bd=1)
-        self.bottom_frame.pack(side="bottom", fill="x", pady=10)
+    def show_parameters(self):
+        # Create a new top-level window to show the parameters
+        params_window = Toplevel(self.master)
+        params_window.title("Parameters")
+        params_window.geometry("300x200")
+        params_window.configure(bg="#1A1A1A")
 
-        self.parameters_label = Label(
-            self.bottom_frame, text="Parameters", font=("Consolas", 14, "bold"), fg="#00BFFF", bg="#262626"
-        )
-        self.parameters_label.pack(pady=5)
+        # Display parameter values
+        Label(
+            params_window,
+            text=f"Stage Position: {self.stage_position:.2f}",
+            font=("Consolas", 12),
+            fg="#FFD700",
+            bg="#1A1A1A",
+        ).pack(pady=10)
 
-        self.parameters_grid = Frame(self.bottom_frame, bg="#262626")
-        self.parameters_grid.pack()
+        Label(
+            params_window,
+            text=f"Upper Bound: {self.upper_bound:.2f}",
+            font=("Consolas", 12),
+            fg="#FFD700",
+            bg="#1A1A1A",
+        ).pack(pady=10)
 
-        self.parameters = [
-            ("Micron", "10 µm"),
-            ("Upper Bound", "5.0 mm"),
-            ("Lower Bound", "15.0 mm"),
-            ("Focus Metric", "0.85"),
-            ("Additional Param 1", "Value 1"),
-            ("Additional Param 2", "Value 2"),
-        ]
-
-        for row, (param, value) in enumerate(self.parameters):
-            param_label = Label(
-                self.parameters_grid, text=param, font=("Consolas", 12), fg="#FFFFFF", bg="#262626", anchor="w", width=15
-            )
-            param_label.grid(row=row, column=0, padx=10, pady=5)
-
-            value_label = Label(
-                self.parameters_grid, text=value, font=("Consolas", 12, "bold"), fg="#FFD700", bg="#262626", anchor="w", width=25
-            )
-            value_label.grid(row=row, column=1, padx=10, pady=5)
+        Label(
+            params_window,
+            text=f"Lower Bound: {self.lower_bound:.2f}",
+            font=("Consolas", 12),
+            fg="#FFD700",
+            bg="#1A1A1A",
+        ).pack(pady=10)
 
     def set_draw_line(self):
         self.drawing_mode = "line"
@@ -262,7 +260,7 @@ class TechnicalPointCloudApp:
     def update_scale(self):
         """Update the scale with indicators."""
         self.scale_canvas.delete("all")
-        self.scale_canvas.create_line(25, 0, 25, 600, fill="white", width=2)  # Main scale
+        self.scale_canvas.create_line(25, 0, 25, 600, fill="white", width=2)
         for i in range(0, 601, 30):
             self.scale_canvas.create_line(20, i, 30, i, fill="white")
         upper_pos = 600 - (self.upper_bound * 60)
@@ -316,7 +314,6 @@ class TechnicalPointCloudApp:
 
     def focus_stack_action(self):
         print("Performing focus stacking...")
-
 
 if __name__ == "__main__":
     root = Tk()
