@@ -10,7 +10,7 @@ import time
 WINDOW_WIDTH, WINDOW_HEIGHT = 1280, 960
 CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 1280, 960, 30
 DEVICE_INDEX = 1
-NUM_CAPTURE_IMAGES = 1
+NUM_CAPTURE_IMAGES = 10
 IMAGE_DIR = "images"
 
 # Ensure the images directory exists
@@ -36,7 +36,6 @@ class DinoLiteGUI(QMainWindow):
         self.drawing = False
         self.last_mouse_pos = QPoint()
         self.shapes = []  # Stores drawn shapes
-        self.is_video_feed = True  # Toggle between video feed and last captured image
         self.current_tool = 'Line'  # Default tool is line
 
         self.start_camera()
@@ -53,13 +52,11 @@ class DinoLiteGUI(QMainWindow):
 
         # Buttons
         self.btn_capture = QPushButton("Image Capture", self)
-        self.btn_toggle_view = QPushButton("Toggle View", self)
 
         # Connect buttons to their respective methods
         self.btn_capture.clicked.connect(self.capture_images)
-        self.btn_toggle_view.clicked.connect(self.toggle_view)
 
-        for btn in [self.btn_capture, self.btn_toggle_view]:
+        for btn in [self.btn_capture]:
             btn.setStyleSheet("background-color: #333; color: #A9A9A9; font-size: 14px; border-radius: 5px; padding: 8px;")
             top_button_layout.addWidget(btn)
 
@@ -85,13 +82,6 @@ class DinoLiteGUI(QMainWindow):
         self.last_captured_label = QLabel(self)
         self.last_captured_label.setFixedSize(WINDOW_WIDTH // 2, WINDOW_HEIGHT - 150)
         self.last_captured_label.setStyleSheet("border: 2px solid #4CAF50; background-color: #333; border-radius: 5px;")
-
-        # Drawing menu as an overlay
-        self.drawing_menu = QWidget(self)
-        self.drawing_menu.setFixedSize(WINDOW_WIDTH // 2, 100)
-        self.drawing_menu.setStyleSheet("background-color: rgba(0, 0, 0, 0.7); border-radius: 5px; padding: 10px;")
-        self.drawing_menu.move(WINDOW_WIDTH // 2, 50)  # Position it on top of the captured image
-        self.drawing_menu.setVisible(True)  # Always visible
 
         # Create layouts for each section
         video_layout = QVBoxLayout()
@@ -157,7 +147,9 @@ class DinoLiteGUI(QMainWindow):
     def update_last_captured_image(self):
         pixmap = self.last_captured_pixmap.copy()
         painter = QPainter(pixmap)
-        pen = QPen(QColor(255, 0, 0), 2, Qt.SolidLine)  # Neon Red
+        
+        # Set a bold red line for drawing
+        pen = QPen(QColor(255, 0, 0), 5, Qt.SolidLine)  # Bold red color, thicker line
         painter.setPen(pen)
 
         for shape in self.shapes:
@@ -176,19 +168,13 @@ class DinoLiteGUI(QMainWindow):
     def change_tool(self, tool):
         """Change the current drawing tool."""
         self.current_tool = tool
-
-    def toggle_view(self):
-        """Toggle between live video feed and captured image."""
-        self.is_video_feed = not self.is_video_feed
-        if self.is_video_feed:
-            self.video_label.setPixmap(self.video_label.pixmap())  # Display live feed
-        else:
-            self.last_captured_label.setPixmap(self.last_captured_pixmap)  # Display last captured image
+        print(f"Changed tool to {tool}")
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton and self.last_captured_label.underMouse():
             self.drawing = True
             self.last_mouse_pos = event.pos()
+            print("Mouse pressed on captured image...")
 
     def mouseMoveEvent(self, event):
         if self.drawing and self.last_captured_label.underMouse():
@@ -198,16 +184,19 @@ class DinoLiteGUI(QMainWindow):
             # Draw depending on the current tool
             self.shapes.append({"start": start, "end": end, "type": self.current_tool})
             self.last_mouse_pos = end
-            self.update_last_captured_image()  # Update drawing in real time
+            self.update_last_captured_image()
+            print("Mouse moved...")
 
     def mouseReleaseEvent(self, event):
         if self.drawing and event.button() == Qt.LeftButton:
             self.drawing = False
+            print("Mouse released...")
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Space:
             self.shapes.clear()
             self.update_last_captured_image()
+            print("Cleared all shapes...")
 
     def closeEvent(self, event):
         self.timer.stop()
