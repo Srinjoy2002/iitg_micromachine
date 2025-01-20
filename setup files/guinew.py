@@ -91,7 +91,7 @@ class TechnicalPointCloudApp:
         self.parameters_button.pack(side="right", padx=20)
 
         # Adjusted size for left frame (live feed)
-        self.left_frame = Frame(master, bg="#262626", width=600, height=700, borderwidth=2, relief="groove")
+        self.left_frame = Frame(master, bg="#262626", width=600, height=600, borderwidth=2, relief="groove")
         self.left_frame.pack(side="left", fill="both", padx=10, pady=10, expand=True)
 
         self.live_feed_label = Label(
@@ -99,7 +99,7 @@ class TechnicalPointCloudApp:
         )
         self.live_feed_label.pack(pady=5)
 
-        self.live_feed_canvas = Canvas(self.left_frame, width=400, height=400, bg="#1A1A1A", relief="sunken")
+        self.live_feed_canvas = Canvas(self.left_frame, width=600, height=600, bg="#1A1A1A", relief="sunken")
         self.live_feed_canvas.pack(side="left", padx=5, pady=5)
 
         # Scale and Jog Buttons, for moving the linear stage up and down
@@ -186,7 +186,7 @@ class TechnicalPointCloudApp:
         )
         self.captured_image_label.pack(pady=5)
 
-        self.captured_image_canvas = Canvas(self.center_frame, width=400, height=400, bg="#1A1A1A", relief="sunken")
+        self.captured_image_canvas = Canvas(self.center_frame, width=500, height=500, bg="#1A1A1A", relief="sunken")
         self.captured_image_canvas.pack(pady=5)
 
         self.captured_image_canvas.bind("<ButtonPress-1>", self.start_drawing)

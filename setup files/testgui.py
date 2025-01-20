@@ -10,7 +10,7 @@ import time
 WINDOW_WIDTH, WINDOW_HEIGHT = 1280, 960
 CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 1280, 960, 30
 DEVICE_INDEX = 1
-NUM_CAPTURE_IMAGES = 10
+NUM_CAPTURE_IMAGES = 1
 IMAGE_DIR = "images"
 
 # Ensure the images directory exists
@@ -35,8 +35,8 @@ class DinoLiteGUI(QMainWindow):
         self.last_captured_pixmap = QPixmap()
         self.drawing = False
         self.last_mouse_pos = QPoint()
-        self.shapes = []  # Stores drawn shapes
-        self.current_tool = 'Line'  # Default tool is line
+        self.shapes = []  
+        self.current_tool = 'Line'  
 
         self.start_camera()
 
