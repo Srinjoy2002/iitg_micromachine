@@ -23,7 +23,7 @@ class TechnicalPointCloudApp:
         self.top_panel.pack(side="top", fill="x", pady=5)
 
         # Add Logo (smaller size)
-        self.logo_image = PhotoImage(file="E:\iitg_micromachine\setup files\download.png").subsample(3)  # Resize by a factor of 3
+        self.logo_image = PhotoImage(file="download.png").subsample(3)  # Resize by a factor of 3
         self.logo_label = Label(self.top_panel, image=self.logo_image, bg="#262626")
         self.logo_label.pack(side="left", padx=20, pady=5)
 
