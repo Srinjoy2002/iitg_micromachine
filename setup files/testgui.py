@@ -1,212 +1,163 @@
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox
-from PyQt5.QtCore import QTimer, Qt, QPoint, QRect
-from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen, QColor
+
+import sys
 import cv2
-import threading
-import os
 import time
+import os
+import threading
+from tkinter import Tk, Label, Button, Frame, Canvas, BooleanVar, Menu, Toplevel
+from PIL import Image, ImageTk  # Pillow library to handle image formats
 
 # Constants
-WINDOW_WIDTH, WINDOW_HEIGHT = 1280, 960
+WINDOW_WIDTH, WINDOW_HEIGHT = 1600, 900
 CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 1280, 960, 30
-DEVICE_INDEX = 1
-NUM_CAPTURE_IMAGES = 1
-IMAGE_DIR = "images"
+DEVICE_INDEX = 1  # Ensure this points to the Dino-Lite camera
+IMAGE_SAVE_DIR = "images"
 
-# Ensure the images directory exists
-if not os.path.exists(IMAGE_DIR):
-    os.makedirs(IMAGE_DIR)
+# Initialize microscope
+from dnx64 import DNX64
+microscope = DNX64('D:\\dnx64_python\\dnx64_python\\DNX64.dll')
 
-# Threaded decorator for non-blocking operations
-def threaded(func):
-    def wrapper(*args, **kwargs):
-        thread = threading.Thread(target=func, args=args, kwargs=kwargs)
-        thread.start()
-    return wrapper
+class TechnicalPointCloudApp:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("3D Point Cloud Reconstruction Tool")
+        self.master.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+        self.master.configure(bg="#1A1A1A")
 
-class DinoLiteGUI(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.initUI()
+        # Variables for stage and drawing
+        self.stage_position = 5.0  # Initial stage position
+        self.upper_bound = 8.0
+        self.lower_bound = 2.0
+        self.manual_mode = BooleanVar(value=False)
+        self.drawn_objects = []
 
-        self.camera = None
-        self.timer = QTimer()
-        self.captured_images = []
-        self.last_captured_pixmap = QPixmap()
-        self.drawing = False
-        self.last_mouse_pos = QPoint()
-        self.shapes = []  
-        self.current_tool = 'Line'  
+        # AMR, FOV, Configurations, LED Status
+        self.amr_value = 1.5  # Example AMR value
+        self.fov_value = "5x5 mm"  # Example FOV value
+        self.config_status = "Loaded"
+        self.led_status = "ON"
 
-        self.start_camera()
-
-    def initUI(self):
-        self.setWindowTitle("Dino-Lite Microscope Control")
-        self.setGeometry(100, 100, WINDOW_WIDTH, WINDOW_HEIGHT)
-        self.setStyleSheet("background-color: #1E1E1E; color: #A9A9A9; font-family: Arial, sans-serif;")
-
-        # Main layout
-        main_layout = QVBoxLayout()
-        top_button_layout = QHBoxLayout()
-        content_layout = QHBoxLayout()  # Change this to QHBoxLayout
+        # Top Panel for Buttons
+        self.top_panel = Frame(master, bg="#262626", height=80, relief="groove", bd=1)
+        self.top_panel.pack(side="top", fill="x", pady=5)
 
         # Buttons
-        self.btn_capture = QPushButton("Image Capture", self)
+        self.calibrate_button = Button(
+            self.top_panel, text="Calibrate", font=("Consolas", 12, "bold"),
+            bg="#FF4500", fg="#1A1A1A", relief="flat", command=self.calibrate_action
+        )
+        self.calibrate_button.pack(side="left", padx=20, pady=10)
 
-        # Connect buttons to their respective methods
-        self.btn_capture.clicked.connect(self.capture_images)
+        self.capture_button = Button(
+            self.top_panel, text="Image Capture", font=("Consolas", 12, "bold"),
+            bg="#00BFFF", fg="#1A1A1A", relief="flat", command=self.capture_action
+        )
+        self.capture_button.pack(side="left", padx=20, pady=10)
 
-        for btn in [self.btn_capture]:
-            btn.setStyleSheet("background-color: #333; color: #A9A9A9; font-size: 14px; border-radius: 5px; padding: 8px;")
-            top_button_layout.addWidget(btn)
+        self.focus_stack_button = Button(
+            self.top_panel, text="Focus Stack", font=("Consolas", 12, "bold"),
+            bg="#FFD700", fg="#1A1A1A", relief="flat", command=self.focus_stack_action
+        )
+        self.focus_stack_button.pack(side="left", padx=20, pady=10)
 
-        # Tool selection for drawing
-        self.tool_selector = QComboBox(self)
-        self.tool_selector.addItems(['Line', 'Rectangle', 'Circle'])
-        self.tool_selector.currentTextChanged.connect(self.change_tool)
-        self.tool_selector.setStyleSheet("background-color: #333; color: #A9A9A9; padding: 8px;")
-        top_button_layout.addWidget(self.tool_selector)
+        self.parameters_button = Button(
+            self.top_panel, text="Parameters", font=("Consolas", 12, "bold"),
+            bg="#8A2BE2", fg="#FFFFFF", relief="flat", command=self.show_parameters
+        )
+        self.parameters_button.pack(side="left", padx=20, pady=10)
 
-        # Heading for video feed and captured image
-        self.video_label_heading = QLabel("Live Video Feed", self)
-        self.video_label_heading.setStyleSheet("color: #C1C1C1; font-size: 16px; margin: 10px 0;")
-        self.last_captured_label_heading = QLabel("Last Captured Image", self)
-        self.last_captured_label_heading.setStyleSheet("color: #C1C1C1; font-size: 16px; margin: 10px 0;")
+        # Video Feed Panel
+        self.left_frame = Frame(master, bg="#262626", width=800, height=700, borderwidth=2, relief="groove")
+        self.left_frame.pack(side="left", fill="both", padx=10, pady=10)
 
-        # Video feed section
-        self.video_label = QLabel(self)
-        self.video_label.setFixedSize(WINDOW_WIDTH // 2, WINDOW_HEIGHT - 150)
-        self.video_label.setStyleSheet("border: 2px solid #4CAF50; background-color: #333; border-radius: 5px;")
+        self.live_feed_canvas = Canvas(self.left_frame, width=600, height=600, bg="#1A1A1A", relief="sunken")
+        self.live_feed_canvas.pack(padx=5, pady=5)
 
-        # Last captured image section
-        self.last_captured_label = QLabel(self)
-        self.last_captured_label.setFixedSize(WINDOW_WIDTH // 2, WINDOW_HEIGHT - 150)
-        self.last_captured_label.setStyleSheet("border: 2px solid #4CAF50; background-color: #333; border-radius: 5px;")
+        # Last Captured Image Section
+        self.middle_frame = Frame(master, bg="#262626", width=600, height=700)
+        self.middle_frame.pack(side="top", fill="both", padx=10, pady=10)
 
-        # Create layouts for each section
-        video_layout = QVBoxLayout()
-        video_layout.addWidget(self.video_label_heading)
-        video_layout.addWidget(self.video_label)
+        self.last_image_canvas = Canvas(self.middle_frame, width=580, height=580, bg="#1A1A1A", relief="sunken")
+        self.last_image_canvas.pack(pady=5)
 
-        last_captured_layout = QVBoxLayout()
-        last_captured_layout.addWidget(self.last_captured_label_heading)
-        last_captured_layout.addWidget(self.last_captured_label)
+        # Initialize Camera
+        self.camera = self.initialize_camera()
+        self.video_thread = threading.Thread(target=self.capture_video)
+        self.video_thread.daemon = True
+        self.video_thread.start()
 
-        # Add the layouts to content_layout side by side
-        content_layout.addLayout(video_layout)
-        content_layout.addLayout(last_captured_layout)
+    def initialize_camera(self):
+        """Setup the Dino-Lite camera and return the camera object."""
+        camera = cv2.VideoCapture(DEVICE_INDEX, cv2.CAP_DSHOW)
+        camera.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+        return camera
 
-        main_layout.addLayout(top_button_layout)
-        main_layout.addLayout(content_layout)  # Adding content layout below buttons
-
-        container = QWidget()
-        container.setLayout(main_layout)
-        self.setCentralWidget(container)
-
-    def start_camera(self):
-        self.camera = cv2.VideoCapture(DEVICE_INDEX, cv2.CAP_DSHOW)
-        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
-        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-        self.camera.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
-
-        if not self.camera.isOpened():
-            self.statusBar().showMessage("Error: Could not open camera.")
-            return
-
-        self.timer.timeout.connect(self.update_frame)
-        self.timer.start(30)
-
-    def update_frame(self):
-        ret, frame = self.camera.read()
-        if ret:
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            h, w, ch = rgb_frame.shape
-            qimg = QImage(rgb_frame.data, w, h, ch * w, QImage.Format_RGB888)
-            self.video_label.setPixmap(QPixmap.fromImage(qimg))
-
-    @threaded
-    def capture_images(self, *args):
-        self.captured_images.clear()
-        for i in range(NUM_CAPTURE_IMAGES):
+    def capture_video(self):
+        """Capture video feed from the camera."""
+        while True:
             ret, frame = self.camera.read()
             if ret:
-                filename = os.path.join(IMAGE_DIR, f"capture_{i + 1}.png")
-                self.captured_images.append(frame)
-                # Save image as it is (no processing)
-                cv2.imwrite(filename, frame)
-                time.sleep(1)  # 1-second delay between captures
+                self.display_live_feed(frame)
 
-        if self.captured_images:
-            last_frame = self.captured_images[-1]
-            rgb_frame = cv2.cvtColor(last_frame, cv2.COLOR_BGR2RGB)
-            h, w, ch = rgb_frame.shape
-            qimg = QImage(rgb_frame.data, w, h, ch * w, QImage.Format_RGB888)
-            self.last_captured_pixmap = QPixmap.fromImage(qimg)
-            self.update_last_captured_image()
+    def display_live_feed(self, frame):
+        """Display live video feed on the canvas."""
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        image = Image.fromarray(rgb_frame)
+        photo = ImageTk.PhotoImage(image)
 
-    def update_last_captured_image(self):
-        pixmap = self.last_captured_pixmap.copy()
-        painter = QPainter(pixmap)
-        
-        # Set a bold red line for drawing
-        pen = QPen(QColor(255, 0, 0), 5, Qt.SolidLine)  # Bold red color, thicker line
-        painter.setPen(pen)
+        self.live_feed_canvas.create_image(0, 0, anchor="nw", image=photo)
+        self.live_feed_canvas.image = photo
 
-        for shape in self.shapes:
-            if shape["type"] == 'Line':
-                painter.drawLine(shape["start"], shape["end"])
-            elif shape["type"] == 'Rectangle':
-                rect = QRect(shape["start"], shape["end"])
-                painter.drawRect(rect)
-            elif shape["type"] == 'Circle':
-                radius = int(shape["start"].manhattanLength())
-                painter.drawEllipse(shape["start"], radius, radius)
+    def capture_action(self):
+        """Capture an image, save it, and display it."""
+        ret, frame = self.camera.read()
+        if ret:
+            self.save_image(frame)
+            self.display_last_image(frame)
 
-        painter.end()
-        self.last_captured_label.setPixmap(pixmap)
+    def save_image(self, frame):
+        """Save the captured image to disk."""
+        if not os.path.exists(IMAGE_SAVE_DIR):
+            os.makedirs(IMAGE_SAVE_DIR)
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        filename = os.path.join(IMAGE_SAVE_DIR, f"capture_{timestamp}.png")
+        cv2.imwrite(filename, frame)
 
-    def change_tool(self, tool):
-        """Change the current drawing tool."""
-        self.current_tool = tool
-        print(f"Changed tool to {tool}")
+    def display_last_image(self, frame):
+        """Display the last captured image on the canvas."""
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        image = Image.fromarray(rgb_frame)
+        photo = ImageTk.PhotoImage(image)
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton and self.last_captured_label.underMouse():
-            self.drawing = True
-            self.last_mouse_pos = event.pos()
-            print("Mouse pressed on captured image...")
+        self.last_image_canvas.create_image(0, 0, anchor="nw", image=photo)
+        self.last_image_canvas.image = photo
 
-    def mouseMoveEvent(self, event):
-        if self.drawing and self.last_captured_label.underMouse():
-            start = self.last_mouse_pos
-            end = event.pos()
+    def focus_stack_action(self):
+        """Handle focus stacking action."""
+        print("Focus stacking initiated...")
 
-            # Draw depending on the current tool
-            self.shapes.append({"start": start, "end": end, "type": self.current_tool})
-            self.last_mouse_pos = end
-            self.update_last_captured_image()
-            print("Mouse moved...")
+    def calibrate_action(self):
+        """Handle calibration action."""
+        print("Calibration initiated...")
 
-    def mouseReleaseEvent(self, event):
-        if self.drawing and event.button() == Qt.LeftButton:
-            self.drawing = False
-            print("Mouse released...")
+    def show_parameters(self):
+        """Show the parameters window with AMR, FOV, and other values."""
+        param_window = Toplevel(self.master)
+        param_window.title("Microscope Parameters")
+        param_window.geometry("400x300")
+        param_window.configure(bg="#262626")
 
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Space:
-            self.shapes.clear()
-            self.update_last_captured_image()
-            print("Cleared all shapes...")
-
-    def closeEvent(self, event):
-        self.timer.stop()
-        if self.camera:
-            self.camera.release()
-        cv2.destroyAllWindows()
-        super().closeEvent(event)
+        Label(param_window, text="Microscope Parameters", font=("Consolas", 14, "bold"), fg="#FFD700", bg="#262626").pack(pady=10)
+        Label(param_window, text=f"AMR: {self.amr_value}", font=("Consolas", 12), fg="white", bg="#262626").pack(pady=5)
+        Label(param_window, text=f"FOV: {self.fov_value}", font=("Consolas", 12), fg="white", bg="#262626").pack(pady=5)
+        Label(param_window, text=f"Configuration: {self.config_status}", font=("Consolas", 12), fg="white", bg="#262626").pack(pady=5)
+        Label(param_window, text=f"LED Status: {self.led_status}", font=("Consolas", 12), fg="white", bg="#262626").pack(pady=5)
 
 if __name__ == "__main__":
-    app = QApplication([])
-    gui = DinoLiteGUI()
-    gui.show()
-    app.exec()
+    root = Tk()
+    app = TechnicalPointCloudApp(root)
+    root.mainloop()
+
+
