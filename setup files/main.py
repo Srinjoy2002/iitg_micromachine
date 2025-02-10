@@ -1,226 +1,250 @@
-import importlib
-import math
-import threading
+import sys
 import time
-from dnx64 import DNX64
+import os
 import cv2
 import numpy as np
-import os
+from dnx64 import DNX64
+import threading
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QHBoxLayout, QVBoxLayout, QWidget, QPushButton, QAction, QMessageBox
+from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtCore import QTimer, Qt
 
 # Global variables
-WINDOW_WIDTH, WINDOW_HEIGHT = 640, 480  # Increased window size
+WINDOW_WIDTH, WINDOW_HEIGHT = 640, 480
 CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 1280, 960, 30
 DNX64_PATH = "D:\\dnx64_python\\dnx64_python\\DNX64.dll"
 DEVICE_INDEX = 0
-CAM_INDEX = 1  # Camera index, please change it if you have more than one camera
+CAM_INDEX = 1
 QUERY_TIME = 1
 COMMAND_TIME = 1
+last_captured_image = None  # Stores the last captured image filename
+def threaded(func):
+    """Decorator to run functions in a separate thread."""
+    def wrapper(*args, **kwargs):
+        thread = threading.Thread(target=func, args=args, kwargs=kwargs, daemon=True)
+        thread.start()
+    return wrapper
 
-# Global variable for last captured image path
-last_captured_image = None
-
-
+# --- Original Helper Functions ---
 def clear_line(n=1):
     LINE_CLEAR = "\x1b[2K"
     for i in range(n):
         print("", end=LINE_CLEAR)
 
-
-def threaded(func):
-    """Wrapper to run a function in a separate thread with @threaded decorator"""
-
-    def wrapper(*args, **kwargs):
-        thread = threading.Thread(target=func, args=args, kwargs=kwargs)
-        thread.start()
-
-    return wrapper
-
-
 def custom_microtouch_function():
     """Executes when MicroTouch press event got detected"""
-
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     clear_line(1)
     print(f"{timestamp} MicroTouch press detected!", end="\r")
 
-
-def capture_image(frame):
-    """Capture an image and save it in the current working directory."""
-
-    global last_captured_image
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    filename = f"image_{timestamp}.png"
-    cv2.imwrite(filename, frame)
-    last_captured_image = filename  # Save the path of the last captured image
-    clear_line(1)
-    print(f"Saved image to {filename}", end="\r")
-
-
-def start_recording(frame_width, frame_height, fps):
-    """Start recording video and return the video writer object."""
-
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    filename = f"video_{timestamp}.avi"
-    fourcc = cv2.VideoWriter.fourcc(*"XVID")
-    video_writer = cv2.VideoWriter(filename, fourcc, fps, (frame_width, frame_height))
-    clear_line(1)
-    print(f"Video recording started: {filename}. Press r to stop.", end="\r")
-    return video_writer
-
-
-def stop_recording(video_writer):
-    """Stop recording video and release the video writer object."""
-
-    video_writer.release()
-    clear_line(1)
-    print("Video recording stopped", end="\r")
-
-
-def initialize_camera():
-    camera = cv2.VideoCapture(CAM_INDEX, cv2.CAP_DSHOW)
-    camera.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
-    camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("m", "j", "p", "g"))
-    camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G"))
-    camera.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
-    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-    return camera
-
-
-def process_frame(frame):
-    return cv2.resize(frame, (WINDOW_WIDTH, WINDOW_HEIGHT))
-
-
 def init_microscope(microscope):
+    """Initialize the microscope (same as original code)."""
     microscope.SetVideoDeviceIndex(DEVICE_INDEX)
     time.sleep(0.1)
     microscope.EnableMicroTouch(True)
     time.sleep(0.1)
     microscope.SetEventCallback(custom_microtouch_function)
     time.sleep(0.1)
-
     return microscope
 
 
-def print_keymaps():
-    print(
-        "Press the key below prompts to continue \n \
-        0:Led off \n \
-        1:AMR \n \
-        2:Flash_leds and On \n \
-        c:List config \n \
-        d:Show device id \n \
-        f:Show fov \n \
-        r:Record video or Stop Record video \n \
-        s:Capture image \n \
-        6:Set EFLC Quadrant 1 to flash \n \
-        7:Set EFLC Quadrant 2 to flash \n \
-        8:Set EFLC Quadrant 3 to flash \n \
-        9:Set EFLC Quadrant 4 to flash \n \
-        Esc:Quit \
-        "
-    )
+# --- PyQt5 GUI Implementation ---
+class MicroscopeApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
 
+        self.setWindowTitle("Microscope Viewer")
+        self.setGeometry(100, 100, 2 * WINDOW_WIDTH + 100, WINDOW_HEIGHT + 150)
 
-def config_keymaps(microscope, frame):
-    key = cv2.waitKey(1) & 0xFF
+        # Create central widget and layouts
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.main_layout = QVBoxLayout()
+        self.image_layout = QHBoxLayout()
+        self.button_layout = QVBoxLayout()
 
-    if key == ord("0"):
-        led_off(microscope)
-    if key == ord("1"):
-        print_amr(microscope)
-    if key == ord("2"):
-        flash_leds(microscope)
-    if key == ord("c"):
-        print_config(microscope)
-    if key == ord("d"):
-        print_deviceid(microscope)
-    if key == ord("f"):
-        print_fov_mm(microscope)
-    if key == ord("s"):
-        capture_image(frame)
-    if key == ord("6"):
-        microscope.SetEFLC(DEVICE_INDEX, 1, 32)
-        time.sleep(0.1)
-        microscope.SetEFLC(DEVICE_INDEX, 1, 31)
-    if key == ord("7"):
-        microscope.SetEFLC(DEVICE_INDEX, 2, 32)
-        time.sleep(0.1)
-        microscope.SetEFLC(DEVICE_INDEX, 2, 15)
-    if key == ord("8"):
-        microscope.SetEFLC(DEVICE_INDEX, 3, 32)
-        time.sleep(0.1)
-        microscope.SetEFLC(DEVICE_INDEX, 3, 15)
-    if key == ord("9"):
-        microscope.SetEFLC(DEVICE_INDEX, 4, 32)
-        time.sleep(0.1)
-        microscope.SetEFLC(DEVICE_INDEX, 4, 31)
+        # Live feed label
+        self.live_feed_label = QLabel(self)
+        self.live_feed_label.setFixedSize(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.live_feed_label.setStyleSheet("border: 2px solid black; background-color: #222;")
+        self.image_layout.addWidget(self.live_feed_label)
 
-    return key
+        # Last captured image label
+        self.captured_image_label = QLabel(self)
+        self.captured_image_label.setFixedSize(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.captured_image_label.setStyleSheet("border: 2px solid black; background-color: #444;")
+        self.image_layout.addWidget(self.captured_image_label)
 
+        # Button to capture image
+        self.capture_button = QPushButton("Capture Image", self)
+        self.capture_button.setFixedSize(200, 50)
+        self.capture_button.setStyleSheet("font-size: 16px; background-color: #0078D7; color: white;")
+        self.capture_button.clicked.connect(self.capture_image)
+        self.button_layout.addWidget(self.capture_button)
 
-def start_camera(microscope):
-    """Starts camera, initializes variables for video preview, and listens for shortcut keys."""
+        # Add layouts
+        self.main_layout.addLayout(self.image_layout)
+        self.main_layout.addLayout(self.button_layout)
+        self.central_widget.setLayout(self.main_layout)
 
-    camera = initialize_camera()
+        # Timer for real-time video feed updates
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_frame)
 
-    if not camera.isOpened():
-        print("Error opening the camera device.")
-        return
+        # Initialize microscope and camera
+        self.microscope = DNX64(DNX64_PATH)
+        self.microscope = init_microscope(self.microscope)
+        self.camera = self.initialize_camera()
 
-    recording = False
-    video_writer = None
-    inits = True
+        # Setup menu bar with help instructions
+        self.create_menu_bar()
 
-    print_keymaps()
+        # Start the video feed
+        self.timer.start(10)  # Faster refresh for lower latency
 
-    while True:
-        ret, frame = camera.read()
+    def create_menu_bar(self):
+        """Create menu bar with Help option."""
+        menubar = self.menuBar()
+        help_menu = menubar.addMenu("Help")
+
+        help_action = QAction("Keyboard Shortcuts", self)
+        help_action.triggered.connect(self.show_help)
+        help_menu.addAction(help_action)
+
+    def show_help(self):
+        """Display a message box with keyboard shortcuts."""
+        msg = QMessageBox()
+        msg.setWindowTitle("Keyboard Shortcuts")
+        msg.setText(
+            "0: LED Off\n"
+            "1: Show AMR Magnification\n"
+            "2: Flash LEDs\n"
+            "c: List Configuration\n"
+            "d: Show Device ID\n"
+            "f: Show FOV\n"
+            "r: Record Video / Stop Recording\n"
+            "Esc: Quit"
+        )
+        msg.exec_()
+
+    def initialize_camera(self):
+        """Setup OpenCV camera."""
+        camera = cv2.VideoCapture(CAM_INDEX, cv2.CAP_DSHOW)
+        camera.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+        return camera
+
+    def update_frame(self):
+        """Update the live feed with low latency."""
+        ret, frame = self.camera.read()
         if ret:
-            resized_frame = process_frame(frame)
+            frame_resized = cv2.resize(frame, (WINDOW_WIDTH, WINDOW_HEIGHT))
+            frame_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
+            h, w, ch = frame_rgb.shape
+            bytes_per_line = ch * w
+            q_img = QImage(frame_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
+            self.live_feed_label.setPixmap(QPixmap.fromImage(q_img))
 
-            # Show live feed and last captured image side by side
-            if last_captured_image:
-                last_img = cv2.imread(last_captured_image)
-                last_img_resized = cv2.resize(last_img, (WINDOW_WIDTH, WINDOW_HEIGHT))
-                # Concatenate the live feed and last captured image horizontally
-                combined_frame = cv2.hconcat([resized_frame, last_img_resized])
-            else:
-                combined_frame = resized_frame
-
-            # Show the combined frame
-            cv2.imshow("Live Feed and Last Captured Image", combined_frame)
-
-            if recording:
-                video_writer.write(frame)
-            if inits:
-                microscope = init_microscope(microscope)
-                inits = False
-
-        key = config_keymaps(microscope, frame)
-
-        if key == ord("r") and not recording:
-            recording = True
-            video_writer = start_recording(CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS)
-
-        elif key == ord("r") and recording:
-            recording = False
-            stop_recording(video_writer)
-
-        if key == 27:
+    def capture_image(self):
+        """Capture image and update the GUI."""
+        global last_captured_image
+        ret, frame = self.camera.read()
+        if ret:
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            filename = f"image_{timestamp}.png"
+            cv2.imwrite(filename, frame)
+            last_captured_image = filename
             clear_line(1)
-            break
+            print(f"Saved image to {filename}", end="\r")
+            self.update_captured_image()
 
-    if video_writer is not None:
-        video_writer.release()
-    camera.release()
-    cv2.destroyAllWindows()
+    def update_captured_image(self):
+        """Load and display last captured image."""
+        if last_captured_image and os.path.exists(last_captured_image):
+            image = cv2.imread(last_captured_image)
+            image_resized = cv2.resize(image, (WINDOW_WIDTH, WINDOW_HEIGHT))
+            image_rgb = cv2.cvtColor(image_resized, cv2.COLOR_BGR2RGB)
+            h, w, ch = image_rgb.shape
+            bytes_per_line = ch * w
+            q_img = QImage(image_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
+            self.captured_image_label.setPixmap(QPixmap.fromImage(q_img))
+
+    def print_amr(self):
+        """Print AMR magnification to the terminal."""
+        self.microscope = init_microscope(self.microscope)  # Refresh microscope
+        config = self.microscope.GetConfig(DEVICE_INDEX)
+        if (config & 0x40) == 0x40:
+            amr = self.microscope.GetAMR(DEVICE_INDEX)
+            amr = round(amr, 1)
+            clear_line(1)
+            print(f"{amr}x", end="\r")
+            time.sleep(0.001)
+        else:
+            clear_line(1)
+            print("It does not belong to the AMR series.", end="\r")
+            time.sleep(0.001)
+    def print_fov_mm(self):
+        amr = self.microscope.GetAMR(DEVICE_INDEX)
+        fov = self.microscope.FOVx(DEVICE_INDEX, amr)
+        amr = round(amr, 1)
+        fov = round(fov / 1000, 2)
+        if fov == math.inf:
+            fov = round(microscope.FOVx(DEVICE_INDEX, 50.0) / 1000.0, 2)
+            clear_line(1)
+            print("50x fov: ", fov, "mm", end="\r")
+        else:
+            clear_line(1)
+            print(f"{amr}x fov: ", fov, "mm", end="\r")
+        time.sleep(QUERY_TIME)
+    @threaded
+    def flash_leds(self):
+        self.microscope.SetLEDState(0, 0)
+        time.sleep(COMMAND_TIME)
+        self.microscope.SetLEDState(0, 1)
+        time.sleep(COMMAND_TIME)
+        clear_line(1)
+        print("flash_leds", end="\r")
+
+    @threaded
+    def led_off(self):
+        self.microscope.SetLEDState(0, 0)
+        time.sleep(COMMAND_TIME)
+        clear_line(1)
+        print("led off", end="\r")
+    def keyPressEvent(self, event):
+        """Handle keyboard shortcuts."""
+        key = event.key()
+
+        if key == ord("0"):
+            self.led_off()
+        elif key == ord("1"):
+            self.print_amr()
+        elif key == ord("2"):
+            self.flash_leds()
+        elif key == ord("c"):
+            print("List Configuration")
+        elif key == ord("d"):
+            print("Show Device ID")
+        elif key == ord("f"):
+            print_fov_mm(microscope)
+        elif key == ord("r"):
+            print("Record Video / Stop Recording")
+        elif key == 27:  # ESC key
+            self.close()
+
+    def closeEvent(self, event):
+        """Handle window close event."""
+        self.camera.release()
+        event.accept()
 
 
-def run_usb():
-    # Initialize microscope
-    micro_scope = DNX64(DNX64_PATH)
-    start_camera(micro_scope)
-
+def run_gui():
+    """Launch the PyQt5 GUI."""
+    app = QApplication(sys.argv)
+    window = MicroscopeApp()
+    window.show()
+    sys.exit(app.exec_())
 
 if __name__ == "__main__":
-    run_usb()
+    run_gui()
