@@ -13,8 +13,8 @@ from PyQt5.QtCore import QTimer, Qt
 WINDOW_WIDTH, WINDOW_HEIGHT = 640, 480
 CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 1280, 960, 30
 DNX64_PATH = "D:\\dnx64_python\\dnx64_python\\DNX64.dll"
-DEVICE_INDEX = 0
-CAM_INDEX = 1
+DEVICE_INDEX = 1
+CAM_INDEX = 0
 QUERY_TIME = 1
 COMMAND_TIME = 1
 last_captured_image = None  # Stores the last captured image filename
