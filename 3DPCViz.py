@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import glob
 import torch
+import threading
 from torchvision.models.detection import maskrcnn_resnet50_fpn, MaskRCNN_ResNet50_FPN_Weights
 from torchvision import transforms as T
 from tkinter import Tk, Label, Button, filedialog, messagebox, Frame
@@ -46,7 +47,7 @@ def get_object_mask(image):
 
 def traditional_masking(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 50, 150)  # Canny edge detection
+    edges = cv2.Canny(gray, 50, 150)
     kernel = np.ones((3, 3), np.uint8)
     dilated_edges = cv2.dilate(edges, kernel, iterations=1)
     mask = cv2.inRange(dilated_edges, 1, 255)
@@ -87,13 +88,12 @@ def depth_map_to_point_cloud(depth_map, image, xy_scale=1.0, z_scale=1.0):
     h, w = depth_map.shape
     points = []
     colors = []
-
+    
     for y in range(h):
         for x in range(w):
             z = depth_map[y, x] * z_scale
-            if z != 0:  # Only add points with valid z
+            if z != 0:
                 points.append([x * xy_scale, y * xy_scale, z])
-                # Get RGB color from the original image
                 color = image[y, x] / 255.0
                 colors.append(color)
 
@@ -104,35 +104,24 @@ def calculate_dimensions(points):
         return 0, 0, 0
     x_min, y_min, z_min = np.min(points, axis=0)
     x_max, y_max, z_max = np.max(points, axis=0)
-    length = x_max - x_min
-    breadth = y_max - y_min
-    height = z_max - z_min
-    return length, breadth, height
+    return x_max - x_min, y_max - y_min, z_max - z_min
 
 class PointCloudApp:
     def __init__(self, master):
         self.master = master
         self.master.title('3D Point Cloud Reconstruction Tool')
         self.master.geometry('800x600')
-
         self.frame = Frame(master)
         self.frame.pack()
-
-        self.title_label = Label(self.frame, text="3D Point Cloud Reconstruction Tool", font=("Arial", 24, "bold"))
-        self.title_label.pack()
-
-        self.upload_button = Button(self.frame, text='Upload Images', command=self.upload_images)
-        self.upload_button.pack(pady=10)
-
-        self.process_button = Button(self.frame, text='Process Images', command=self.run_point_cloud_processing)
+        
+        Label(self.frame, text="3D Point Cloud Reconstruction", font=("Arial", 18, "bold")).pack()
+        Button(self.frame, text='Upload Images', command=self.upload_images).pack(pady=10)
+        self.process_button = Button(self.frame, text='Process Images', command=self.start_processing)
         self.process_button.pack(pady=10)
-
         self.dimension_label = Label(self.frame, text="")
         self.dimension_label.pack(pady=10)
-
         self.progress_bar = ttk.Progressbar(self.frame, length=300, mode='determinate')
         self.progress_bar.pack(pady=10)
-
         self.images = []
 
     def upload_images(self):
@@ -140,53 +129,41 @@ class PointCloudApp:
         if folder_path:
             self.images = load_images_from_folder(folder_path)
             messagebox.showinfo("Info", f"{len(self.images)} images loaded.")
-
-    def run_point_cloud_processing(self):
+    
+    def start_processing(self):
         if not self.images:
             messagebox.showwarning("Warning", "Please upload images first.")
             return
-
-        self.progress_bar['maximum'] = len(self.images)
-
+        threading.Thread(target=self.run_point_cloud_processing, daemon=True).start()
+    
+    def run_point_cloud_processing(self):
+        self.progress_bar["maximum"] = len(self.images)
         images_cleaned = []
-        masks = []
+        
         for i, img in enumerate(self.images):
-            masked_img, mask = mask_image_with_rcnn(img)
-            if masked_img is not None:
-                images_cleaned.append(masked_img)
-                masks.append(mask)
-
-            self.progress_bar['value'] = i + 1
-            self.master.update_idletasks()
-
-        if len(images_cleaned) == 0:
+            masked_img, _ = mask_image_with_rcnn(img)
+            images_cleaned.append(masked_img)
+            self.master.after(0, self.progress_bar.step, 1)
+            
+        if not images_cleaned:
             self.dimension_label.config(text="Error: No valid images after processing.")
             return
-
-        # Focus stacking
+        
         stacked_image, focus_indices = focus_stack(images_cleaned)
         depth_map = create_depth_map(focus_indices, layer_distance=100)
-
-        pixel_to_mm_scale = 0.01
-        point_cloud, colors = depth_map_to_point_cloud(depth_map, stacked_image, xy_scale=pixel_to_mm_scale, z_scale=0.001)
+        point_cloud, colors = depth_map_to_point_cloud(depth_map, stacked_image, xy_scale=0.01, z_scale=0.001)
         length, breadth, height = calculate_dimensions(point_cloud)
-
-        self.dimension_label.config(text=f'Length: {length:.2f} mm, Breadth: {breadth:.2f} mm, Height: {height:.2f} mm')
+        
+        self.master.after(0, self.dimension_label.config, {"text": f'Length: {length:.2f} mm, Breadth: {breadth:.2f} mm, Height: {height:.2f} mm'})
         self.visualize_point_cloud(point_cloud, colors)
 
     def visualize_point_cloud(self, points, colors):
         if len(points) == 0:
-            self.dimension_label.config(text="No points to display in the point cloud.")
             return
-
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(points)
         pcd.colors = o3d.utility.Vector3dVector(colors)
-
-        # Optionally downsample the point cloud for better performance on low-RAM devices
-        pcd = pcd.voxel_down_sample(voxel_size=0.001)  # Adjust voxel size for finer details
-
-        o3d.visualization.draw_geometries([pcd], window_name="Point Cloud", width=800, height=600)
+        o3d.visualization.draw_geometries([pcd])
 
 if __name__ == "__main__":
     root = Tk()
