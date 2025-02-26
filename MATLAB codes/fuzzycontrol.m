@@ -213,7 +213,7 @@ function displayAndSaveFIS(fis, motorFIS)
     plotmf(fis, 'output', 1);
     title('FocusFIS - Output: FocusDegree');
     % Save FocusFIS figure
-    saveas(figFocus, fullfile(pwd, 'FocusFIS_MF.png'));
+    saveas(figFocus, fullfile(pwd, 'visualizations/FocusFIS_MF.png'));
     disp('FocusFIS Rules:');
     disp(fis.Rules);
     
@@ -226,7 +226,7 @@ function displayAndSaveFIS(fis, motorFIS)
     plotmf(motorFIS, 'output', 1);
     title('MotorFIS - Output: Adjustment');
     % Save MotorFIS figure
-    saveas(figMotor, fullfile(pwd, 'MotorFIS_MF.png'));
+    saveas(figMotor, fullfile(pwd, 'visualizations/MotorFIS_MF.png'));
     disp('MotorFIS Rules:');
     disp(motorFIS.Rules);
 end
