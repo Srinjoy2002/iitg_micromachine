@@ -58,20 +58,24 @@ pip install SPiiPlusPython-{ppv}-cp{pv}-cp{abi}-{platform}.whl
 
  where the .whl files can be found in the same directory as a library. pv->Python Version
 
-In the ‘motion_control_code’ directory, you can find the following files:
+In the `motion_control_code` directory, you can find the following files:
 
--1.final_gui_app.py→ Final GUI of Motion Control software.
--2.enable.py → Supporting file for enabling the motor.
--3.disable.py → Supporting file for disabling the motor.
--4.Focus_app.py→ contains the Focus stacking and ML app.
+- `final_gui_app.py` → Final GUI of Motion Control software  
+- `enable.py`        → Supporting file for enabling the motor  
+- `disable.py`       → Supporting file for disabling the motor  
+- `Focus_app.py`     → Contains the focus-stacking and ML application  
 
-Some other codes for 3d visualisation in the folder "supplementary_code:
+Some other code for 3D visualization is located in the `supplementary_code` folder:
 
--1.open3dviznew.py→ height-mapped colored 3d view.
--2.mtplotlib.py→ matplotlib based 3d viz.
--3.real_view.py → older version of foucs_app.py.
--4.3DPCViz.py → point cloud-based visualisation.
--5.app.py → test file.
+- `open3dviznew.py`  → Height-mapped colored 3D view  
+- `matplotlib.py`    → Matplotlib-based 3D visualization  
+- `real_view.py`     → Older version of `Focus_app.py`  
+- `3DPCViz.py`       → Point-cloud-based visualization  
+- `app.py`           → Test harness  
+
+The images captured by the 3D profilometer are stored in:
+
+
 
 The images that are being captured by the 3d profilometer are stored in “dataset/captured_img_date_time”.
 
