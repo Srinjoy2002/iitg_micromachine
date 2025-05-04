@@ -21,6 +21,7 @@ model.to(device)
 def load_images_from_folder(folder_path):
     image_files = glob.glob(os.path.join(folder_path, '*.jpg'))
     if not image_files:
+        
         raise FileNotFoundError(f"No images found in the folder: {folder_path}")
     images = [cv2.imread(img_file) for img_file in image_files]
     return images
